@@ -50,6 +50,7 @@ enum class Algo
 constexpr const char *algoName(Algo algo)
 {
 	using enum Algo;
+
 	switch (algo)
 	{
 	case MD5: return QT_TRANSLATE_NOOP("Hash Algorithms", "Message Digest 5");

@@ -29,7 +29,8 @@ HashTaskTag::HashTaskTag(HashTask &task, QObject *parent) :
 {
 	if (task.tag)
 	{
-		throw task.tag;
+		millis = -1;
+		hashStr = tr("The hashing task this tag was assigned to already has an assigned tag.");
 	}
 
 	task.tag = this;
@@ -55,6 +56,11 @@ Algo HashTaskTag::hashAlgo() const
 	return algorithm;
 }
 
+QString HashTaskTag::algoName() const
+{
+	return ::algoName(algorithm);
+}
+
 bool HashTaskTag::isFinished() const
 {
 	return !hashStr.isNull();
@@ -62,10 +68,15 @@ bool HashTaskTag::isFinished() const
 
 void HashTaskTag::jobUpdate(int permilli)
 {
-	millis = permilli;
+	if (permilli > millis)
+	{
+		emit updated(permilli - millis);
+		millis = permilli;
+	}
 }
 
 void HashTaskTag::hashComplete(QString hash)
 {
 	hashStr = hash;
+	emit completed();
 }

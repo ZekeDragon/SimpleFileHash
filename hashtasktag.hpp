@@ -30,6 +30,7 @@ class HashTask;
 class HashTaskTag : public QObject
 {
 	Q_OBJECT
+
 public:
 	HashTaskTag(HashTask &task, QObject *parent = nullptr);
 
@@ -37,7 +38,12 @@ public:
 	QString const &hash() const;
 	QString const &filename() const;
 	Algo hashAlgo() const;
+	QString algoName() const;
 	bool isFinished() const;
+
+signals:
+	void updated(int difference);
+	void completed();
 
 public slots:
 	void jobUpdate(int permilli);

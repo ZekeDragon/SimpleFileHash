@@ -20,10 +20,6 @@
 ***********************************************************************************************************************/
 #include "hashtasksmodel.hpp"
 
-#include <QThreadPool>
-
-QThreadPool &communityPool();
-
 struct HashTasksModel::Impl
 {
 	Impl(HashTasksModel *top) :

@@ -77,6 +77,7 @@ void TestHashThreadComm::taskTag()
 	}
 
 	tag.hashComplete("Completed Hash String");
+	QVERIFY(tag.isFinished());
 	QCOMPARE(tag.hash(), "Completed Hash String");
 }
 
@@ -93,6 +94,7 @@ void TestHashThreadComm::taskCommunication()
 	}
 
 	reporter.complete("Hash Job Complete");
+	QVERIFY(tag.isFinished());
 	QCOMPARE(tag.hash(), "Hash Job Complete");
 }
 

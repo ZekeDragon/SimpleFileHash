@@ -23,16 +23,41 @@
 #include <QObject>
 #include <QString>
 
+#include <memory>
+
+#include "hashalgo.hpp"
+
+class HashTaskTag;
+
 class HashingJob : public QObject
 {
 	Q_OBJECT
 
 public:
-	explicit HashingJob(QStringList const &paths, QObject *parent = nullptr);
+	explicit HashingJob(QStringList const &paths, Algo algo, QObject *parent = nullptr);
+	~HashingJob();
 
+	QStringList const &filePaths();
+	QStringList const &directories();
 
+	size_t tasksDone();
+	int permilli();
+	HashTaskTag *tagAt(size_t pos);
+
+public slots:
+	void startTasks();
 
 signals:
+	void permilliComplete(int millis);
+	void tasksDoneUpdate(size_t tasks);
+	void jobComplete();
 
+private slots:
+	void taskFinished();
+	void taskUpdate(int change);
+
+private:
+	struct Impl;
+	std::unique_ptr<Impl> im;
 };
 

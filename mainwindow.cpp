@@ -59,8 +59,10 @@ MainWindow::~MainWindow()
 	// No implementation.
 }
 
-// NOTE: Declaration of this function exists in hashtasksmodel.cpp, not mainwindow.hpp!
-QThreadPool &communityPool()
+#ifndef SFH_TEST_BUILD
+// NOTE: Declaration of this function exists in hashingjob.cpp, not mainwindow.hpp!
+void queueToThreadPool(QRunnable *runner)
 {
-	return *comPool;
+	comPool->start(runner);
 }
+#endif

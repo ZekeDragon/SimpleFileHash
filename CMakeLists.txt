@@ -72,9 +72,9 @@ qt_add_executable(SimpleFileHash
     ${PROJECT_SOURCES}
 )
 
-qt_create_translation(QM_FILES
-    ${TRANSLATE_SOURCES}
-    ${TS_FILES}
+qt_add_translations(SimpleFileHash
+    TS_FILES ${TS_FILES}
+    SOURCES ${TRANSLATE_SOURCES}
 )
 
 target_link_libraries(SimpleFileHash
