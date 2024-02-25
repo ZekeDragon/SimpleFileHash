@@ -53,25 +53,25 @@ constexpr const char *algoName(Algo algo)
 
 	switch (algo)
 	{
-	case MD5: return QT_TRANSLATE_NOOP("Hash Algorithms", "Message Digest 5");
-	case SHA1: return QT_TRANSLATE_NOOP("Hash Algorithms", "Secure Hash Algorithm 1");
-	case SHA2_224: return QT_TRANSLATE_NOOP("Hash Algorithms", "224-bit Secure Hash Algorithm 2");
-	case SHA2_256: return QT_TRANSLATE_NOOP("Hash Algorithms", "256-bit Secure Hash Algorithm 2");
-	case SHA2_384: return QT_TRANSLATE_NOOP("Hash Algorithms", "384-bit Secure Hash Algorithm 2");
-	case SHA2_512: return QT_TRANSLATE_NOOP("Hash Algorithms", "512-bit Secure Hash Algorithm 2");
-	case SHA3_224: return QT_TRANSLATE_NOOP("Hash Algorithms", "224-bit Secure Hash Algorithm 3");
-	case SHA3_256: return QT_TRANSLATE_NOOP("Hash Algorithms", "256-bit Secure Hash Algorithm 3");
-	case SHA3_384: return QT_TRANSLATE_NOOP("Hash Algorithms", "384-bit Secure Hash Algorithm 3");
-	case SHA3_512: return QT_TRANSLATE_NOOP("Hash Algorithms", "512-bit Secure Hash Algorithm 3");
-	case BLAKE2s: return QT_TRANSLATE_NOOP("Hash Algorithms", "BLAKE2s Hash");
-	case BLAKE2b: return QT_TRANSLATE_NOOP("Hash Algorithms", "BLAKE2b Hash");
-	case Tiger: return QT_TRANSLATE_NOOP("Hash Algorithms", "Tiger Hash");
-	case Whirlpool: return QT_TRANSLATE_NOOP("Hash Algorithms", "Whirlpool Hash");
-	case MD4: return QT_TRANSLATE_NOOP("Hash Algorithms", "Message Digest 4");
-	case MD2: return QT_TRANSLATE_NOOP("Hash Algorithms", "Message Digest 2");
-	case RIPEMD160: return QT_TRANSLATE_NOOP("Hash Algorithms", "RIPE Message Digest-160");
-	case RIPEMD256: return QT_TRANSLATE_NOOP("Hash Algorithms", "RIPE Message Digest-256");
-	case SM3: return QT_TRANSLATE_NOOP("Hash Algorithms", "ShangMi 3 Hash");
-	default: return QT_TRANSLATE_NOOP("Hash Algorithms", "None");
+	case MD5: return QT_TRANSLATE_NOOP("HashTask", "Message Digest 5");
+	case SHA1: return QT_TRANSLATE_NOOP("HashTask", "Secure Hash Algorithm 1");
+	case SHA2_224: return QT_TRANSLATE_NOOP("HashTask", "224-bit Secure Hash Algorithm 2");
+	case SHA2_256: return QT_TRANSLATE_NOOP("HashTask", "256-bit Secure Hash Algorithm 2");
+	case SHA2_384: return QT_TRANSLATE_NOOP("HashTask", "384-bit Secure Hash Algorithm 2");
+	case SHA2_512: return QT_TRANSLATE_NOOP("HashTask", "512-bit Secure Hash Algorithm 2");
+	case SHA3_224: return QT_TRANSLATE_NOOP("HashTask", "224-bit Secure Hash Algorithm 3");
+	case SHA3_256: return QT_TRANSLATE_NOOP("HashTask", "256-bit Secure Hash Algorithm 3");
+	case SHA3_384: return QT_TRANSLATE_NOOP("HashTask", "384-bit Secure Hash Algorithm 3");
+	case SHA3_512: return QT_TRANSLATE_NOOP("HashTask", "512-bit Secure Hash Algorithm 3");
+	case BLAKE2s: return QT_TRANSLATE_NOOP("HashTask", "BLAKE2s Hash");
+	case BLAKE2b: return QT_TRANSLATE_NOOP("HashTask", "BLAKE2b Hash");
+	case Tiger: return QT_TRANSLATE_NOOP("HashTask", "Tiger Hash");
+	case Whirlpool: return QT_TRANSLATE_NOOP("HashTask", "Whirlpool Hash");
+	case MD4: return QT_TRANSLATE_NOOP("HashTask", "Message Digest 4");
+	case MD2: return QT_TRANSLATE_NOOP("HashTask", "Message Digest 2");
+	case RIPEMD160: return QT_TRANSLATE_NOOP("HashTask", "RIPE Message Digest-160");
+	case RIPEMD256: return QT_TRANSLATE_NOOP("HashTask", "RIPE Message Digest-256");
+	case SM3: return QT_TRANSLATE_NOOP("HashTask", "ShangMi 3 Hash");
+	default: return QT_TRANSLATE_NOOP("HashTask", "None");
 	}
 }

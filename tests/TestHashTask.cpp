@@ -20,10 +20,15 @@
 ***********************************************************************************************************************/
 
 #include "hashtask.hpp"
-#include "hashtasktag.hpp"
 
 #include <QObject>
 #include <QTest>
+#include <QFuture>
+#include <QPromise>
+#include <QFutureWatcher>
+#include <QEventLoop>
+#include <QSignalSpy>
+#include <QtConcurrent/QtConcurrent>
 
 #include <vector>
 #include <array>
@@ -33,20 +38,26 @@ class TestHashTask : public QObject
 	Q_OBJECT
 
 	void testData(std::vector<std::pair<Algo, QString>> const &algos);
-	void runTest(const char *filename);
+	void runHashTest(const char *filename);
 
 private slots:
-	void smallTest_data();
-	void smallTest();
+	void smallHashTest_data();
+	void smallHashTest();
 
 	void hashTest_data();
 	void hashTest();
 
-	void largeTest_data();
-	void largeTest();
+	void largeHashTest_data();
+	void largeHashTest();
 
 	void invalidInputs_data();
 	void invalidInputs();
+
+	void constInfo();
+
+	void running();
+	void pausing();
+	void canceling();
 };
 
 void TestHashTask::testData(const std::vector<std::pair<Algo, QString>> &algos)
@@ -60,22 +71,25 @@ void TestHashTask::testData(const std::vector<std::pair<Algo, QString>> &algos)
 	}
 }
 
-void TestHashTask::runTest(const char *filename)
+void TestHashTask::runHashTest(const char *filename)
 {
 	QFETCH(Algo, algo);
 	QFETCH(QString, expected);
 
-	HashTask task(filename, algo);
-	HashTaskTag tag(task);
+	QPromise<QString> promise;
+	QFuture<QString> future = promise.future();
+	promise.start();
+	HashTask::runHashNow(promise, filename, algo);
+	QCOMPARE(future.progressMinimum(), 0);
+	QCOMPARE(future.progressMaximum(), 1000);
+	promise.finish();
 
-	task.run();
-
-	QVERIFY(tag.isFinished());
-	QCOMPARE(tag.hash(), expected);
-	QCOMPARE(tag.permilliComplete(), 1000);
+	QVERIFY(future.isFinished());
+	QCOMPARE(future.result(), expected);
+	QCOMPARE(future.progressValue(), 1000);
 }
 
-void TestHashTask::smallTest_data()
+void TestHashTask::smallHashTest_data()
 {
 	testData({
 	        { Algo::MD5, "266c6efea54d63c04fb8083f40d441cc" },
@@ -106,9 +120,9 @@ void TestHashTask::smallTest_data()
 	});
 }
 
-void TestHashTask::smallTest()
+void TestHashTask::smallHashTest()
 {
-	runTest("../SmallBlock.txt");
+	runHashTest("../SmallBlock.txt");
 }
 
 void TestHashTask::hashTest_data()
@@ -144,10 +158,10 @@ void TestHashTask::hashTest_data()
 
 void TestHashTask::hashTest()
 {
-	runTest("../tfolder/TestBlock1.txt");
+	runHashTest("../tfolder/TestBlock1.txt");
 }
 
-void TestHashTask::largeTest_data()
+void TestHashTask::largeHashTest_data()
 {
 	testData({
 	        { Algo::MD5, "a32c23f51a318a09e11e9a4f4bf567de" },
@@ -178,9 +192,9 @@ void TestHashTask::largeTest_data()
 	});
 }
 
-void TestHashTask::largeTest()
+void TestHashTask::largeHashTest()
 {
-	runTest("../lfolder/LargeBlock1.txt");
+	runHashTest("../lfolder/LargeBlock1.txt");
 }
 
 void TestHashTask::invalidInputs_data()
@@ -201,16 +215,89 @@ void TestHashTask::invalidInputs()
 	QFETCH(QString, expected);
 
 	HashTask test(filename, algo);
-	HashTaskTag tag(test);
 
-	for (int i = 0; i < 3; ++i)
-	{
-		test.run();
+	QPromise<QString> promise;
+	QFuture<QString> future = promise.future();
+	promise.start();
+	HashTask::runHashNow(promise, filename, algo);
+	promise.finish();
 
-		QVERIFY(tag.isFinished());
-		QCOMPARE(tag.permilliComplete(), -1);
-		QCOMPARE(tag.hash(), expected);
-	}
+	QVERIFY(future.isFinished());
+	QCOMPARE(future.progressValue(), 0);
+	QCOMPARE(future.result(), expected);
+}
+
+void TestHashTask::constInfo()
+{
+	HashTask task("../SmallBlock.txt", Algo::SHA2_256);
+
+	QCOMPARE(task.hashAlgo(), Algo::SHA2_256);
+	QCOMPARE(task.algoName(), "256-bit Secure Hash Algorithm 2");
+	// The HashTask class actually does work with and should work with relative path names.
+	QCOMPARE(task.filename(), "../SmallBlock.txt");
+	QCOMPARE(task.hash(), "Hash has not started");
+	QVERIFY(!task.started());
+}
+
+void TestHashTask::running()
+{
+	HashTask task("../lfolder/LargeBlock3.txt", Algo::SHA2_256);
+	QSignalSpy progressSpy(&task, SIGNAL(updated(int)));
+	QSignalSpy completeSpy(&task, SIGNAL(completed()));
+	QObject::connect(&task, &HashTask::updated, &task, [&] {
+		qDebug() << "Hashing progress update: " << task.permilliComplete();
+	});
+	task.start();
+	QVERIFY(task.started());
+	QVERIFY(completeSpy.wait(3000));
+	QCOMPARE(task.hash(), "2781dd49b1b6324252ad1fe4b6ace9eebf69ff92b0a853b50cacfd2494d49953");
+	QVERIFY(task.isComplete());
+	QCOMPARE(task.permilliComplete(), 1000);
+	qDebug() << "Signals emitted for progress: " << progressSpy.size();
+	QVERIFY(!progressSpy.isEmpty());
+}
+
+void TestHashTask::pausing()
+{
+	HashTask task("../lfolder/LargeBlock3.txt", Algo::SHA2_256);
+	QSignalSpy pausedSpy(&task, SIGNAL(paused()));
+	QSignalSpy unpausedSpy(&task, SIGNAL(unpaused()));
+	QSignalSpy completeSpy(&task, SIGNAL(completed()));
+	QObject::connect(&task, &HashTask::updated, &task, [&] {
+		if (task.permilliComplete() > 400)
+		{
+			task.pause();
+		}
+	});
+	task.start();
+	QVERIFY(!task.isPaused());
+	QVERIFY(pausedSpy.wait(1000));
+	QVERIFY(task.isPaused());
+	task.unpause();
+	QVERIFY(unpausedSpy.wait(1000));
+	QVERIFY(completeSpy.wait(1000));
+	QCOMPARE(task.hash(), "2781dd49b1b6324252ad1fe4b6ace9eebf69ff92b0a853b50cacfd2494d49953");
+	QVERIFY(task.isComplete());
+	QCOMPARE(task.permilliComplete(), 1000);
+}
+
+void TestHashTask::canceling()
+{
+	HashTask task("../lfolder/LargeBlock3.txt", Algo::SHA2_256);
+	QSignalSpy canceledSpy(&task, SIGNAL(canceled()));
+	QSignalSpy completeSpy(&task, SIGNAL(completed()));
+	QObject::connect(&task, &HashTask::updated, &task, [&] {
+		if (task.permilliComplete() > 400)
+		{
+			task.cancel();
+		}
+	});
+	task.start();
+	QVERIFY(!task.isComplete());
+	QVERIFY(canceledSpy.wait(3000));
+	QCOMPARE(task.hash(), "Canceled!");
+	QVERIFY(completeSpy.wait(1000));
+	QVERIFY(task.permilliComplete() < 1000);
 }
 
 QTEST_MAIN(TestHashTask)

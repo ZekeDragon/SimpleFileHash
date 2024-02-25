@@ -27,7 +27,7 @@
 
 #include "hashalgo.hpp"
 
-class HashTaskTag;
+class HashTask;
 
 class HashingJob : public QObject
 {
@@ -37,20 +37,24 @@ public:
 	explicit HashingJob(QStringList const &paths, Algo algo, QObject *parent = nullptr);
 	~HashingJob();
 
-	QStringList const &filePaths();
-	QStringList const &directories();
+	QStringList const &filePaths() const;
+	QStringList const &directories() const;
 
-	size_t tasksDone();
-	int permilli();
-	HashTaskTag *tagAt(size_t pos);
+	size_t tasksDone() const;
+	int permilli() const;
+	HashTask *taskAt(size_t pos) const;
+	size_t numTasks() const;
 
 public slots:
 	void startTasks();
+	void cancelJobs();
 
 signals:
 	void permilliComplete(int millis);
 	void tasksDoneUpdate(size_t tasks);
 	void jobComplete();
+	void tasksBegin();
+	void canceled();
 
 private slots:
 	void taskFinished();

@@ -20,22 +20,30 @@
 ***********************************************************************************************************************/
 #include "hashtasksmodel.hpp"
 
+#include "hashingjob.hpp"
+#include "hashtask.hpp"
+
+#include <QApplication>
+#include <QFont>
+#include <QBrush>
+
 struct HashTasksModel::Impl
 {
 	Impl(HashTasksModel *top) :
 	    top(top)
 	{
-
+		// No implementation.
 	}
 
 	HashTasksModel *top;
+	std::unique_ptr<HashingJob> curJob;
 };
 
 HashTasksModel::HashTasksModel(QObject *parent) :
     QAbstractTableModel(parent),
     im(std::make_unique<HashTasksModel::Impl>(this))
 {
-
+	// No implementation.
 }
 
 HashTasksModel::~HashTasksModel()
@@ -43,9 +51,24 @@ HashTasksModel::~HashTasksModel()
 	// No implementation.
 }
 
+void HashTasksModel::setHashingJob(std::unique_ptr<HashingJob> &&job)
+{
+	if (im->curJob)
+	{
+		im->curJob->cancelJobs();
+	}
+
+	im->curJob = std::move(job);
+}
+
 int HashTasksModel::rowCount(const QModelIndex &parent) const
 {
-	return 0;
+	if (parent.isValid())
+	{
+		return 0;
+	}
+
+	return im->curJob ? int(im->curJob->numTasks()) : 0;
 }
 
 int HashTasksModel::columnCount(const QModelIndex &parent) const
@@ -58,12 +81,60 @@ int HashTasksModel::columnCount(const QModelIndex &parent) const
 	return 3;
 }
 
-QVariant HashTasksModel::data(const QModelIndex &parent, int role) const
+QVariant HashTasksModel::data(const QModelIndex &index, int role) const
 {
+	if (index.row() < rowCount() && index.column() < 3)
+	{
+		HashTask *task = im->curJob->taskAt(index.row());
+		if (role == Qt::DisplayRole)
+		{
+			if (index.column() == 0)
+			{
+				return task->filename();
+			}
+			else if (index.column() == 1)
+			{
+				return task->algoName();
+			}
+			else if (index.column() == 2)
+			{
+				if (task->isComplete())
+				{
+					return task->hash();
+				}
+
+				return task->permilliComplete();
+			}
+		}
+		else if (role == Qt::FontRole)
+		{
+			return QApplication::font();
+		}
+		else if (role == Qt::TextAlignmentRole)
+		{
+			if (task->isComplete())
+			{
+				return Qt::AlignLeft;
+			}
+
+			return Qt::AlignHCenter;
+		}
+	}
+
 	return QVariant();
 }
 
 QVariant HashTasksModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-	return QVariant();
+	if (role == Qt::DisplayRole)
+	{
+		if (section >= 0 && section < 3)
+		{
+			return std::array{ "Name of File", "Algorithm", "Hash Function Result" }[section];
+		}
+
+		return QVariant();
+	}
+
+	return QAbstractTableModel::headerData(section, orientation, role);
 }

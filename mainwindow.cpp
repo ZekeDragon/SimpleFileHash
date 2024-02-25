@@ -23,27 +23,15 @@
 
 #include <QThreadPool>
 
-// Using evil global static variables. There should never be more than a single MainWindow instance, so this should
-// always bee nullptr until it is created and will stay what MainWindow::Impl sets it to from there. This is used by the
-// communityPool() method to ensure that all objects can access the community thread pool.
-static QThreadPool *comPool = nullptr;
-
 struct MainWindow::Impl
 {
 	Impl(MainWindow *top) :
 	    top(top)
 	{
 		ui.setupUi(top);
-		if (comPool)
-		{
-			throw comPool;
-		}
-
-		comPool = &pool;
 	}
 
 	MainWindow *top;
-	QThreadPool pool;
 	Ui::MainWindow ui;
 };
 
@@ -58,11 +46,3 @@ MainWindow::~MainWindow()
 {
 	// No implementation.
 }
-
-#ifndef SFH_TEST_BUILD
-// NOTE: Declaration of this function exists in hashingjob.cpp, not mainwindow.hpp!
-void queueToThreadPool(QRunnable *runner)
-{
-	comPool->start(runner);
-}
-#endif

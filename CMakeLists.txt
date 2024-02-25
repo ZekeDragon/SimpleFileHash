@@ -22,6 +22,7 @@ find_package(QT
     NAMES Qt6
     REQUIRED COMPONENTS
         Widgets
+        Concurrent
         LinguistTools
         Test
 )
@@ -29,6 +30,7 @@ find_package(QT
 find_package(Qt6
     REQUIRED COMPONENTS
         Widgets
+        Concurrent
         LinguistTools
         Test
 )
@@ -45,12 +47,10 @@ set(TS_FILES
 set(TRANSLATE_SOURCES
     main.cpp
     hashalgo.hpp
-    hashtaskreporter.hpp
-    hashtaskreporter.cpp
-    hashtasktag.hpp
-    hashtasktag.cpp
     hashtask.hpp
     hashtask.cpp
+    hashprogressitemdelegate.hpp
+    hashprogressitemdelegate.cpp
     hashtasksmodel.hpp
     hashtasksmodel.cpp
     hashingjob.hpp
@@ -79,6 +79,7 @@ qt_add_translations(SimpleFileHash
 
 target_link_libraries(SimpleFileHash
     PRIVATE Qt6::Widgets
+    PRIVATE Qt6::Concurrent
     PRIVATE cryptopp::cryptopp
 )
 

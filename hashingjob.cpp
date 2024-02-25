@@ -21,26 +21,11 @@
 #include "hashingjob.hpp"
 
 #include "hashtask.hpp"
-#include "hashtasktag.hpp"
 
 #include <filesystem>
 #include <system_error>
 
 #include <QDebug>
-
-#ifdef SFH_TEST_BUILD
-#include <QThreadPool>
-#endif
-
-void queueToThreadPool(QRunnable *runner)
-#ifndef SFH_TEST_BUILD
-;
-#else
-{
-	static QThreadPool pool;
-	pool.start(runner);
-}
-#endif
 
 struct HashingJob::Impl
 {
@@ -98,23 +83,20 @@ struct HashingJob::Impl
 
 	void addTask(std::filesystem::path const &path, Algo algo)
 	{
-		QString absPath(path.u8string().c_str());
-		// Use new here because the community QThreadPool takes ownership of the HashTask.
-		HashTask *task = new HashTask(absPath, algo);
-		// Use new here because the top HashingJob takes ownership of the HashTaskTag.
-		HashTaskTag *tag = new HashTaskTag(*task, top);
-		QObject::connect(tag, SIGNAL(updated(int)), top, SLOT(taskUpdate(int)));
-		QObject::connect(tag, SIGNAL(completed()), top, SLOT(taskFinished()));
-		tagSet.push_back(tag);
-		taskQueue.push_back(task);
-		files << absPath;
+		// Who needs smart pointers when you have QObject ownership?
+		taskQueue.push_back(new HashTask(path.u8string().c_str(), algo, false, top));
+		QObject::connect(taskQueue.back(), SIGNAL(updated(int)), top, SLOT(taskUpdate(int)));
+		QObject::connect(taskQueue.back(), SIGNAL(completed()), top, SLOT(taskFinished()));
+		QObject::connect(top, SIGNAL(tasksBegin()), taskQueue.back(), SLOT(start()));
+		QObject::connect(top, SIGNAL(canceled()), taskQueue.back(), SLOT(cancel()));
+		files << taskQueue.back()->filename();
 	}
 
 	HashingJob *top;
 	qsizetype tasksDone = 0, completed = 0;
 	bool checkSubdirectories = false;
 	QStringList files, directories;
-	std::vector<HashTaskTag *> tagSet;
+	// You can't use emplace_back and keep HashTask local because QObject deletes the move constructor...
 	std::vector<HashTask *> taskQueue;
 };
 
@@ -130,40 +112,49 @@ HashingJob::~HashingJob()
 	// No implementation.
 }
 
-QStringList const &HashingJob::filePaths()
+QStringList const &HashingJob::filePaths() const
 {
 	return im->files;
 }
 
-QStringList const &HashingJob::directories()
+QStringList const &HashingJob::directories() const
 {
 	return im->directories;
 }
 
 void HashingJob::startTasks()
 {
-	std::ranges::for_each(im->taskQueue, queueToThreadPool);
-	im->taskQueue.clear();
+	emit tasksBegin();
 }
 
-size_t HashingJob::tasksDone()
+void HashingJob::cancelJobs()
+{
+
+}
+
+size_t HashingJob::tasksDone() const
 {
 	return im->tasksDone;
 }
 
-int HashingJob::permilli()
+int HashingJob::permilli() const
 {
 	return im->files.size() ? static_cast<int>(im->completed / im->files.size()) : 1000;
 }
 
-HashTaskTag *HashingJob::tagAt(size_t pos)
+HashTask *HashingJob::taskAt(size_t pos) const
 {
-	if (pos < im->tagSet.size())
+	if (pos < im->taskQueue.size())
 	{
-		return im->tagSet.at(pos);
+		return im->taskQueue.at(pos);
 	}
 
 	return nullptr;
+}
+
+size_t HashingJob::numTasks() const
+{
+	return im->taskQueue.size();
 }
 
 void HashingJob::taskFinished()

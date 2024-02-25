@@ -20,10 +20,13 @@
 ***********************************************************************************************************************/
 #include "hashtask.hpp"
 
-#include "hashtasktag.hpp"
-#include "hashtaskreporter.hpp"
-
 #include <filesystem>
+#include <fstream>
+
+#include <cassert>
+
+#include <QTimer>
+#include <QtConcurrent/QtConcurrent>
 
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include <cryptopp/files.h>
@@ -40,40 +43,12 @@
 #include <cryptopp/md4.h>
 #include <cryptopp/md2.h>
 
-HashTask::HashTask(QString filename, Algo algo) :
-    fName(filename),
-    algorithm(algo),
-    tag(nullptr)
-{
-	// No implementation.
-}
+constexpr size_t PUMP_AMOUNT = 4096;
 
-HashTask::~HashTask()
+void exceptionWith(QPromise<QString> &promise, QString const &message, std::exception_ptr ptr)
 {
-	// No implementation.
-}
-
-void HashTask::run()
-{
-	if (tag)
-	{
-		HashTaskReporter reporter(*tag);
-		doTask(&reporter);
-	}
-	else
-	{
-		doTask(nullptr);
-	}
-}
-
-QString const &HashTask::filename() const
-{
-	return fName;
-}
-
-Algo HashTask::hashAlgo() const
-{
-	return algorithm;
+	promise.addResult(message);
+	promise.setException(ptr);
 }
 
 std::unique_ptr<CryptoPP::HashTransformation> getTransform(Algo algo)
@@ -106,90 +81,283 @@ std::unique_ptr<CryptoPP::HashTransformation> getTransform(Algo algo)
 	}
 }
 
-void endReportingWith(HashTaskReporter *reporter, QString const &message)
+bool taskBody(QPromise<QString> &promise, CryptoPP::HashFilter &filter, std::filesystem::path p)
 {
-	if (reporter)
+	uintmax_t completed = 0, fileSize = std::filesystem::file_size(p);
+	size_t numSteps = fileSize / PUMP_AMOUNT;
+	int lastReport = 0;
+	if (fileSize % PUMP_AMOUNT)
 	{
-		reporter->update(-1);
-		reporter->complete(message);
+		++numSteps;
 	}
+
+	// This uses std::ifstream to avoid dependency on how Crypto++ opens files. This should work for all localities
+	// on all OS's.
+	std::ifstream stream(p);
+	CryptoPP::FileSource src(stream, false, new CryptoPP::Redirector(filter));
+	while (!promise.isCanceled() && numSteps--)
+	{
+		completed += src.Pump(PUMP_AMOUNT);
+		// This ensures that "update(1000)" isn't called until complete is ready (IE the hash is truly
+		// done).
+		int permilliEst = std::min(int((double(completed) / double(fileSize)) * 1000.), 999);
+		if (permilliEst > lastReport)
+		{
+			lastReport = permilliEst;
+			promise.setProgressValue(permilliEst);
+		}
+
+		promise.suspendIfRequested();
+	}
+
+	if (!promise.isCanceled())
+	{
+		filter.MessageEnd();
+		return true;
+	}
+
+	return false;
 }
 
-void HashTask::doTask(HashTaskReporter *reporter)
+void outputCryptoPPWarning(QString fName, CryptoPP::FileSource::Err const &err, QString errType)
+{
+	QDebug warn = qWarning();
+	warn << HashTask::tr("Received Crypto++ file %1 from attempt to read file: ").arg(errType) << fName << "\n";
+	switch (err.GetErrorType())
+	{
+	case CryptoPP::Exception::ErrorType::IO_ERROR:
+		warn << HashTask::tr("This is due to an underlying Input error.") << "\n";
+		break;
+	case CryptoPP::Exception::ErrorType::CANNOT_FLUSH:
+		warn << HashTask::tr("This is because a data buffer cannot be flushed correctly.") << "\n";
+		break;
+	case CryptoPP::Exception::ErrorType::DATA_INTEGRITY_CHECK_FAILED:
+		warn << HashTask::tr("There was a data integrity check that failed.") << "\n";
+		break;
+	case CryptoPP::Exception::ErrorType::INVALID_ARGUMENT:
+		warn << HashTask::tr("This is because an argument provided was invalid.") << "\n";
+		break;
+	case CryptoPP::Exception::ErrorType::INVALID_DATA_FORMAT:
+		warn << HashTask::tr("This is because the data was in an invalid format.") << "\n";
+		break;
+	case CryptoPP::Exception::ErrorType::NOT_IMPLEMENTED:
+		warn << HashTask::tr("This is reportedly because the functionality is not implemented.") << "\n";
+		break;
+	case CryptoPP::Exception::ErrorType::OTHER_ERROR:
+		warn << HashTask::tr("This is because of an unknown error within Crypto++.") << "\n";
+	}
+
+	warn << HashTask::tr("The error reports: ") << err.GetWhat() << "\n";
+}
+
+void runHashNow(QPromise<QString> &promise, QString fName, Algo algorithm)
 {
 	using namespace CryptoPP;
-	constexpr size_t PUMP_AMOUNT = 4096;
 
 	try
 	{
-		std::string result, stdFileName = fName.toStdString();
-		std::filesystem::path filePath(stdFileName);
+		std::filesystem::path filePath(fName.toStdString());
+		promise.setProgressRange(0, 1000);
 		if (!std::filesystem::exists(filePath))
 		{
-			endReportingWith(reporter, QObject::tr("The file path provided does not exist.", "HashTask"));
+			promise.addResult(HashTask::tr("The file path provided does not exist."));
 		}
 		else if (!std::filesystem::is_regular_file(filePath))
 		{
-			endReportingWith(reporter, QObject::tr("The file provided is not a regular file.", "HashTask"));
+			promise.addResult(HashTask::tr("The file provided is not a regular file."));
 		}
 		else if (auto transform = getTransform(algorithm))
 		{
-			uintmax_t completed = 0, fileSize = std::filesystem::file_size(filePath);
-			size_t numSteps = fileSize / PUMP_AMOUNT;
-			int lastReport = 0;
+			std::string result;
 			HashFilter filter(*transform, new HexEncoder(new StringSink(result), false));
-			if (fileSize % PUMP_AMOUNT)
-			{
-				++numSteps;
-			}
 
-			for (FileSource src(stdFileName.c_str(), false, new Redirector(filter));
-			     numSteps-- && !src.SourceExhausted();)
+			if (taskBody(promise, filter, filePath))
 			{
-				completed += src.Pump(PUMP_AMOUNT);
-				// This ensures that "update(1000)" isn't called until complete is ready (IE the hash is truly done).
-				int permilliEst = std::min(int((double(completed) / double(fileSize)) * 1000.), 999);
-				if (permilliEst > lastReport)
-				{
-					lastReport = permilliEst;
-					reporter->update(permilliEst);
-				}
+				promise.setProgressValue(1000);
+				promise.addResult(result.c_str());
 			}
-
-			filter.MessageEnd();
-			reporter->update(1000);
-			reporter->complete(result.c_str());
 		}
 		else
 		{
-			endReportingWith(reporter,
-			                 QObject::tr("Invalid Hash Function: ", "HashTask") + QObject::tr(algoName(algorithm)));
+			promise.addResult(HashTask::tr("Invalid Hash Function: ") + HashTask::tr(::algoName(algorithm)));
 		}
-	}
-	catch (FileSource::OpenErr err)
-	{
-		endReportingWith(reporter, QObject::tr("Failed to open the file provided: ", "HashTask") + err.what());
-	}
-	catch (FileSource::ReadErr err)
-	{
-		endReportingWith(reporter, QObject::tr("Could not read the provided file: ", "HashTask") + err.what());
-	}
-	catch (FileSource::Err err)
-	{
-		endReportingWith(reporter, QObject::tr("Unknown error from Crypto++: ", "HashTask") + err.what());
-	}
-	catch (std::filesystem::filesystem_error err)
-	{
-		endReportingWith(reporter, QObject::tr("Filesystem interaction error: ", "HashTask") + err.what());
-	}
-	catch (std::bad_alloc err)
-	{
-		endReportingWith(reporter, QObject::tr("Hashing process ran out of memory: ", "HashTask") + err.what());
 	}
 	catch (...)
 	{
-		// We do a catch any so that if an unknown exception is thrown in the thread, this will keep the application
-		// stable. Calling std::terminate is unacceptable.
-		endReportingWith(reporter, QObject::tr("Unknown exception in hash task thread.", "HashTask"));
+		// This is a convenient way to handle any exceptions thrown and propagate them to the main thread.
+		promise.setException(std::current_exception());
 	}
+}
+
+HashTask::HashTask(QString filename, Algo algo, bool startNow, QObject *parent) :
+    QObject(parent),
+    millis(-1),
+    algorithm(algo),
+    hashStr(tr("Hash has not started")),
+    fName(filename)
+{
+	connect(&watcher, SIGNAL(suspended()), SLOT(suspendOn()));
+	connect(&watcher, SIGNAL(resumed()), SLOT(suspendOff()));
+	connect(&watcher, SIGNAL(progressValueChanged(int)), SLOT(jobUpdate(int)));
+	connect(&watcher, SIGNAL(resultReadyAt(int)), SLOT(hashComplete()));
+	connect(&watcher, SIGNAL(finished()), SLOT(finished()));
+
+	if (startNow)
+	{
+		start();
+	}
+}
+
+HashTask::~HashTask()
+{
+	if (millis > -1 && !isComplete())
+	{
+		cancel();
+	}
+}
+
+int HashTask::permilliComplete() const
+{
+	return watcher.future().progressValue();
+}
+
+QString const &HashTask::hash() const
+{
+	return hashStr;
+}
+
+QString const &HashTask::filename() const
+{
+	return fName;
+}
+
+Algo HashTask::hashAlgo() const
+{
+	return algorithm;
+}
+
+QString HashTask::algoName() const
+{
+	return tr(::algoName(algorithm));
+}
+
+bool HashTask::isComplete() const
+{
+	return watcher.isFinished();
+}
+
+bool HashTask::isPaused() const
+{
+	return watcher.isSuspending() || watcher.isSuspended();
+}
+
+bool HashTask::started() const
+{
+	return millis > -1;
+}
+
+void HashTask::start()
+{
+	auto fileSourceErrHandler = [f = fName](CryptoPP::FileSource::Err err) {
+		outputCryptoPPWarning(f, err, tr("Error"));
+		return HashTask::tr("Unknown error from Crypto++");
+	};
+	auto fileSourceReadErrHandler = [f = fName](CryptoPP::FileSource::ReadErr err) {
+		outputCryptoPPWarning(f, err, tr("Read Error"));
+		return HashTask::tr("Could not read the provided file");
+	};
+	auto fileSourceOpenErrHandler = [f = fName](CryptoPP::FileSource::OpenErr err) {
+		outputCryptoPPWarning(f, err, tr("Open Error"));
+		return HashTask::tr("Failed to open the file provided");
+	};
+	auto filesystemErrHandler = [f = fName](std::filesystem::filesystem_error err) {
+		qWarning() << HashTask::tr("There was an error in the filesystem while accessing this file: ") << f << "\n"
+		           << HashTask::tr("The reported error is: ") << err.code().value() << err.code().message() << "\n"
+		           << err.what();
+		return HashTask::tr("Filesystem interaction error");
+	};
+	auto badAllocHandler = [f = fName](std::bad_alloc err) {
+		qWarning() << HashTask::tr("The process ran out of memory while performing the hash task.") << "\n"
+		           << HashTask::tr("Filename in progress: ") << f << "\n"
+		           << err.what();
+		return HashTask::tr("Hashing process ran out of memory");
+	};
+	auto unknownHandler = [f = fName] {
+		qWarning() << HashTask::tr("An unknown exception was thrown from the running hash task.") << "\n"
+		           << HashTask::tr("Filename in progress: ") << f << "\n";
+		return HashTask::tr("An unknown error occurred during hash");
+	};
+
+	if (millis == -1)
+	{
+		watcher.setFuture(QtConcurrent::run(::runHashNow, fName, algorithm));
+		// Chaining onFailed() from the QFuture returned by run is broken for some reason. The returned QFuture doesn't
+		// correctly maintain the values passed to QPromise::setProgressRange(), so I had to resort to the below.
+		watcher.future().onFailed(fileSourceOpenErrHandler);
+		watcher.future().onFailed(fileSourceReadErrHandler);
+		watcher.future().onFailed(fileSourceErrHandler);
+		watcher.future().onFailed(filesystemErrHandler);
+		watcher.future().onFailed(badAllocHandler);
+		watcher.future().onFailed(unknownHandler);
+		// This is required because the watcher.finished() signal is connected to hashComplete(), which calls the
+		// watcher.result() method unconditionally, so there must be some kind of result.
+		watcher.future().onCanceled([] { return HashTask::tr("Canceled!"); });
+		millis = 0;
+		hashStr = tr("Calculating Hash...");
+	}
+}
+
+void HashTask::pause()
+{
+	watcher.setSuspended(true);
+}
+
+void HashTask::unpause()
+{
+	watcher.setSuspended(false);
+}
+
+void HashTask::togglePause()
+{
+	watcher.toggleSuspended();
+}
+
+void HashTask::cancel()
+{
+	watcher.cancel();
+	// This is set immediately, even though the onCanceled() handler does the same.
+	hashStr = tr("Canceled!");
+	emit canceled();
+}
+
+void HashTask::jobUpdate(int permilli)
+{
+	int old = millis;
+	millis = permilli;
+	emit updated(millis - old);
+}
+
+void HashTask::hashComplete()
+{
+	hashStr = watcher.result();
+}
+
+void HashTask::finished()
+{
+	emit completed();
+}
+
+void HashTask::suspendOn()
+{
+	emit paused();
+}
+
+void HashTask::suspendOff()
+{
+	emit unpaused();
+}
+
+void HashTask::runHashNow(QPromise<QString> &promise, QString fName, Algo algorithm)
+{
+	::runHashNow(promise, fName, algorithm);
 }

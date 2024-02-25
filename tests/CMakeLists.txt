@@ -7,7 +7,6 @@ cmake_minimum_required(VERSION 3.21)
 enable_testing()
 
 set(TESTS_TO_EXECUTE
-    HashThreadComm
     HashTask
     HashingJob
     HashTasksModel
@@ -31,6 +30,7 @@ target_include_directories(libTestSimpleFileHash PRIVATE ${REQUIRED_INCLUDES})
 target_compile_definitions(libTestSimpleFileHash PRIVATE SFH_TEST_BUILD)
 target_link_libraries(libTestSimpleFileHash
     PRIVATE Qt6::Widgets
+    PRIVATE Qt6::Concurrent
     PRIVATE cryptopp::cryptopp
 )
 

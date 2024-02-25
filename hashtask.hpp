@@ -20,35 +20,55 @@
 ***********************************************************************************************************************/
 #pragma once
 
-#include <QRunnable>
+#include <QObject>
 #include <QString>
-
-#include <vector>
+#include <QFutureWatcher>
 
 #include "hashalgo.hpp"
 
-class HashTaskTag;
-class HashTaskReporter;
-
-class HashTask : public QRunnable
+class HashTask : public QObject
 {
+	Q_OBJECT
+
 public:
-	HashTask(QString filename, Algo algo);
-	~HashTask();
+	HashTask(QString filename, Algo algo, bool startNow = false, QObject *parent = nullptr);
+	virtual ~HashTask();
 
-	void run() override;
-
+	int permilliComplete() const;
+	QString const &hash() const;
 	QString const &filename() const;
 	Algo hashAlgo() const;
+	QString algoName() const;
+	bool isComplete() const;
+	bool isPaused() const;
+	bool started() const;
 
-protected:
-	virtual void doTask(HashTaskReporter *reporter);
+	static void runHashNow(QPromise<QString> &promise, QString filename, Algo algo);
+
+public slots:
+	void start();
+	void pause();
+	void unpause();
+	void togglePause();
+	void cancel();
+
+signals:
+	void updated(int difference);
+	void completed();
+	void paused();
+	void unpaused();
+	void canceled();
+
+private slots:
+	void jobUpdate(int permilli);
+	void hashComplete();
+	void finished();
+	void suspendOn();
+	void suspendOff();
 
 private:
-	friend class HashTaskTag;
-
-	QString fName;
+	int millis;
 	Algo algorithm;
-	HashTaskTag *tag;
+	QString hashStr, fName;
+	QFutureWatcher<QString> watcher;
 };
-

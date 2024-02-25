@@ -24,6 +24,8 @@
 
 #include <memory>
 
+class HashingJob;
+
 class HashTasksModel : public QAbstractTableModel
 {
 	Q_OBJECT
@@ -32,9 +34,11 @@ public:
 	explicit HashTasksModel(QObject *parent = nullptr);
 	~HashTasksModel();
 
+	void setHashingJob(std::unique_ptr<HashingJob> &&job);
+
 	int rowCount(QModelIndex const &parent = QModelIndex()) const override;
 	int columnCount(QModelIndex const &parent = QModelIndex()) const override;
-	QVariant data(QModelIndex const &parent, int role = Qt::DisplayRole) const override;
+	QVariant data(QModelIndex const &index, int role = Qt::DisplayRole) const override;
 	QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
 
 private:
