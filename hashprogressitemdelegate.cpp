@@ -19,7 +19,8 @@
 #include <QStyleOptionProgressBar>
 #include <QApplication>
 
-HashProgressItemDelegate::HashProgressItemDelegate() :
+HashProgressItemDelegate::HashProgressItemDelegate(QObject *parent) :
+    QStyledItemDelegate(parent),
     pBar(std::make_unique<QStyleOptionProgressBar>())
 {
 	pBar->minimum = 0;
@@ -38,7 +39,7 @@ void HashProgressItemDelegate::paint(QPainter *painter,
 {
 	if (index.column() == 2)
 	{
-		if (QVariant rowDat = index.data(); rowDat.canConvert<int>())
+		if (QVariant rowDat = index.data(); rowDat.typeId() == QMetaType::Int)
 		{
 			int millis = rowDat.toInt();
 

@@ -31,7 +31,7 @@ class HashTask : public QObject
 	Q_OBJECT
 
 public:
-	HashTask(QString filename, Algo algo, bool startNow = false, QObject *parent = nullptr);
+	HashTask(QString filename, Algo algo, size_t index = 0, bool startNow = false, QObject *parent = nullptr);
 	virtual ~HashTask();
 
 	int permilliComplete() const;
@@ -42,6 +42,7 @@ public:
 	bool isComplete() const;
 	bool isPaused() const;
 	bool started() const;
+	size_t index() const;
 
 	static void runHashNow(QPromise<QString> &promise, QString filename, Algo algo);
 
@@ -58,6 +59,7 @@ signals:
 	void paused();
 	void unpaused();
 	void canceled();
+	void dataChanged(int index);
 
 private slots:
 	void jobUpdate(int permilli);
@@ -69,6 +71,7 @@ private slots:
 private:
 	int millis;
 	Algo algorithm;
+	size_t ind;
 	QString hashStr, fName;
 	QFutureWatcher<QString> watcher;
 };

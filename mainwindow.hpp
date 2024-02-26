@@ -32,6 +32,11 @@ public:
 	MainWindow(QWidget *parent = nullptr);
 	~MainWindow();
 
+public slots:
+	void startCancelButton();
+	void openFiles();
+	void openDirectory();
+
 private:
 	struct Impl;
 	std::unique_ptr<Impl> im;

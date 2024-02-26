@@ -35,11 +35,15 @@ public:
 	~HashTasksModel();
 
 	void setHashingJob(std::unique_ptr<HashingJob> &&job);
+	HashingJob *getHashingJob() const;
 
 	int rowCount(QModelIndex const &parent = QModelIndex()) const override;
 	int columnCount(QModelIndex const &parent = QModelIndex()) const override;
 	QVariant data(QModelIndex const &index, int role = Qt::DisplayRole) const override;
 	QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+
+private slots:
+	void hashUpdate(int index);
 
 private:
 	struct Impl;

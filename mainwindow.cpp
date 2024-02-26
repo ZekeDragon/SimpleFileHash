@@ -21,7 +21,13 @@
 #include "mainwindow.hpp"
 #include "./ui_mainwindow.h"
 
+#include "hashtasksmodel.hpp"
+#include "hashingjob.hpp"
+#include "hashtask.hpp"
+#include "hashprogressitemdelegate.hpp"
+
 #include <QThreadPool>
+#include <QFileDialog>
 
 struct MainWindow::Impl
 {
@@ -29,10 +35,19 @@ struct MainWindow::Impl
 	    top(top)
 	{
 		ui.setupUi(top);
+
+		ui.tableView->setModel(&model);
+		// Must parent with tableView because setItemDelegateForColumn does not take ownership.
+		delegate = new HashProgressItemDelegate(ui.tableView);
+		ui.tableView->setItemDelegateForColumn(2, delegate);
+		model.setHashingJob(std::make_unique<HashingJob>(QStringList{ "../tests/lfolder" }, Algo::SHA2_256));
 	}
 
-	MainWindow *top;
 	Ui::MainWindow ui;
+	HashTasksModel model;
+	HashProgressItemDelegate *delegate;
+	MainWindow *top;
+	bool startedState = false;
 };
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -45,4 +60,42 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
 	// No implementation.
+}
+
+void MainWindow::startCancelButton()
+{
+	HashingJob *job = im->model.getHashingJob();
+
+	if (im->startedState)
+	{
+		job->cancelJobs();
+		im->startedState = false;
+	}
+	else
+	{
+		if (job && job->numTasks() > 0)
+		{
+			if (job->taskAt(0)->started())
+			{
+				im->model.setHashingJob(std::make_unique<HashingJob>(job->filePaths(), job->getAlgo()));
+				// Now job points to invalid data, so let's reset it.
+				job = im->model.getHashingJob();
+			}
+
+			job->startTasks();
+			im->startedState = true;
+		}
+	}
+}
+
+void MainWindow::openFiles()
+{
+	QStringList files = QFileDialog::getOpenFileNames(this, tr("Select one or more files to Hash"));
+	im->model.setHashingJob(std::make_unique<HashingJob>(files, Algo::SHA2_256));
+	im->startedState = false;
+}
+
+void MainWindow::openDirectory()
+{
+
 }

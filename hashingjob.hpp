@@ -41,16 +41,17 @@ public:
 	QStringList const &directories() const;
 
 	size_t tasksDone() const;
-	int permilli() const;
+	int permilliComplete() const;
 	HashTask *taskAt(size_t pos) const;
 	size_t numTasks() const;
+	Algo getAlgo() const;
 
 public slots:
 	void startTasks();
 	void cancelJobs();
 
 signals:
-	void permilliComplete(int millis);
+	void permilliUpdate(int millis);
 	void tasksDoneUpdate(size_t tasks);
 	void jobComplete();
 	void tasksBegin();

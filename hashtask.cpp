@@ -189,10 +189,11 @@ void runHashNow(QPromise<QString> &promise, QString fName, Algo algorithm)
 	}
 }
 
-HashTask::HashTask(QString filename, Algo algo, bool startNow, QObject *parent) :
+HashTask::HashTask(QString filename, Algo algo, size_t index, bool startNow, QObject *parent) :
     QObject(parent),
     millis(-1),
     algorithm(algo),
+    ind(index),
     hashStr(tr("Hash has not started")),
     fName(filename)
 {
@@ -254,6 +255,11 @@ bool HashTask::isPaused() const
 bool HashTask::started() const
 {
 	return millis > -1;
+}
+
+size_t HashTask::index() const
+{
+	return ind;
 }
 
 void HashTask::start()
@@ -335,6 +341,7 @@ void HashTask::jobUpdate(int permilli)
 	int old = millis;
 	millis = permilli;
 	emit updated(millis - old);
+	emit dataChanged(ind);
 }
 
 void HashTask::hashComplete()

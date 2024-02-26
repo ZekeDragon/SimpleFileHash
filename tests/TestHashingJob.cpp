@@ -35,33 +35,44 @@ class TestHashingJob : public QObject
 {
 	Q_OBJECT
 
+signals:
+	void cancelDetect();
+
 private slots:
 
 	void testSingleFile();
 	void testMultiFile();
 	void testDirectory();
 	void testLargeFiles();
+
+	void canceling();
 };
 
 void TestHashingJob::testSingleFile()
 {
-	QStringList files;
-	files << "../tfolder/TestBlock1.txt";
-
-	HashingJob job(files, Algo::SHA2_256);
+	HashingJob job(QStringList{ "../tfolder/TestBlock1.txt" }, Algo::SHA2_256);
 
 	QVERIFY(job.directories().empty());
 	QVERIFY(!job.filePaths().empty());
-	QCOMPARE(job.filePaths().at(0).right(14), "TestBlock1.txt");
+	QCOMPARE(job.numTasks(), 1);
+	QString absName = std::filesystem::absolute(std::filesystem::path("../tfolder/TestBlock1.txt")).u8string().c_str();
+	QCOMPARE(job.filePaths().at(0), absName);
 
-	QSignalSpy permilliSpy(&job, SIGNAL(permilliComplete(int)));
+	QSignalSpy permilliSpy(&job, SIGNAL(permilliUpdate(int)));
 	QSignalSpy taskCompleteSpy(&job, SIGNAL(tasksDoneUpdate(size_t)));
 	QSignalSpy completeSpy(&job, SIGNAL(jobComplete()));
+	QVERIFY(permilliSpy.isValid());
+	QVERIFY(taskCompleteSpy.isValid());
+	QVERIFY(completeSpy.isValid());
+
 	job.startTasks();
 	QVERIFY(completeSpy.wait(3000));
 	QVERIFY(!taskCompleteSpy.empty());
 	QCOMPARE(taskCompleteSpy.at(0).at(0).toULongLong(), 1);
+	QCOMPARE(job.tasksDone(), 1);
 	QVERIFY(!permilliSpy.empty());
+	QCOMPARE(job.permilliComplete(), 1000);
+
 	QVERIFY(job.taskAt(0) != nullptr);
 	QCOMPARE(job.taskAt(0)->hash(), "90178e96e1bca942f71dd9434fea7bebb5766f298d6a894621c14975122c4f12");
 }
@@ -79,16 +90,25 @@ void TestHashingJob::testMultiFile()
 
 	QVERIFY(job.directories().empty());
 	QCOMPARE(job.filePaths().size(), 5);
-	QCOMPARE(job.filePaths().at(4).right(14), "TestBlock5.txt");
+	QCOMPARE(job.numTasks(), 5);
+	QString absName = std::filesystem::absolute(std::filesystem::path("../tfolder/TestBlock5.txt")).u8string().c_str();
+	QCOMPARE(job.filePaths().at(4), absName);
 
-	QSignalSpy permilliSpy(&job, SIGNAL(permilliComplete(int)));
+	QSignalSpy permilliSpy(&job, SIGNAL(permilliUpdate(int)));
 	QSignalSpy taskCompleteSpy(&job, SIGNAL(tasksDoneUpdate(size_t)));
 	QSignalSpy completeSpy(&job, SIGNAL(jobComplete()));
+	QVERIFY(permilliSpy.isValid());
+	QVERIFY(taskCompleteSpy.isValid());
+	QVERIFY(completeSpy.isValid());
+
 	job.startTasks();
 	QVERIFY(completeSpy.wait(3000));
 	QVERIFY(!taskCompleteSpy.empty());
 	QCOMPARE(taskCompleteSpy.back().at(0).toULongLong(), 5);
+	QCOMPARE(job.tasksDone(), 5);
 	QVERIFY(!permilliSpy.empty());
+	QCOMPARE(job.permilliComplete(), 1000);
+
 	QVERIFY(job.taskAt(0) != nullptr);
 	QVERIFY(job.taskAt(1) != nullptr);
 	QVERIFY(job.taskAt(2) != nullptr);
@@ -103,23 +123,29 @@ void TestHashingJob::testMultiFile()
 
 void TestHashingJob::testDirectory()
 {
-	QStringList files;
-	files << "../tfolder";
-
-	HashingJob job(files, Algo::SHA2_256);
+	HashingJob job(QStringList{ "../tfolder" }, Algo::SHA2_256);
 
 	QVERIFY(!job.directories().empty());
 	QCOMPARE(job.filePaths().size(), 5);
-	QCOMPARE(job.filePaths().at(4).right(14), "TestBlock5.txt");
+	QCOMPARE(job.numTasks(), 5);
+	QString absName = std::filesystem::absolute(std::filesystem::path("../tfolder/TestBlock5.txt")).u8string().c_str();
+	QCOMPARE(job.filePaths().at(4), absName);
 
-	QSignalSpy permilliSpy(&job, SIGNAL(permilliComplete(int)));
+	QSignalSpy permilliSpy(&job, SIGNAL(permilliUpdate(int)));
 	QSignalSpy taskCompleteSpy(&job, SIGNAL(tasksDoneUpdate(size_t)));
 	QSignalSpy completeSpy(&job, SIGNAL(jobComplete()));
+	QVERIFY(permilliSpy.isValid());
+	QVERIFY(taskCompleteSpy.isValid());
+	QVERIFY(completeSpy.isValid());
+
 	job.startTasks();
 	QVERIFY(completeSpy.wait(3000));
 	QVERIFY(!taskCompleteSpy.empty());
 	QCOMPARE(taskCompleteSpy.back().at(0).toULongLong(), 5);
+	QCOMPARE(job.tasksDone(), 5);
 	QVERIFY(!permilliSpy.empty());
+	QCOMPARE(job.permilliComplete(), 1000);
+
 	QVERIFY(job.taskAt(0) != nullptr);
 	QVERIFY(job.taskAt(1) != nullptr);
 	QVERIFY(job.taskAt(2) != nullptr);
@@ -143,22 +169,56 @@ void TestHashingJob::testLargeFiles()
 
 	QVERIFY(job.directories().empty());
 	QCOMPARE(job.filePaths().size(), 3);
-	QCOMPARE(job.filePaths().at(2).right(15), "LargeBlock3.txt");
+	QCOMPARE(job.numTasks(), 3);
+	QString absName = std::filesystem::absolute(std::filesystem::path("../lfolder/LargeBlock3.txt")).u8string().c_str();
+	QCOMPARE(job.filePaths().at(2), absName);
 
-	QSignalSpy permilliSpy(&job, SIGNAL(permilliComplete(int)));
+	QSignalSpy permilliSpy(&job, SIGNAL(permilliUpdate(int)));
 	QSignalSpy taskCompleteSpy(&job, SIGNAL(tasksDoneUpdate(size_t)));
 	QSignalSpy completeSpy(&job, SIGNAL(jobComplete()));
+	QVERIFY(permilliSpy.isValid());
+	QVERIFY(taskCompleteSpy.isValid());
+	QVERIFY(completeSpy.isValid());
+
 	job.startTasks();
 	QVERIFY(completeSpy.wait(6000));
 	QVERIFY(!taskCompleteSpy.empty());
 	QCOMPARE(taskCompleteSpy.back().at(0).toULongLong(), 3);
+	QCOMPARE(job.tasksDone(), 3);
 	QVERIFY(!permilliSpy.empty());
+	QCOMPARE(job.permilliComplete(), 1000);
+
 	QVERIFY(job.taskAt(0) != nullptr);
 	QVERIFY(job.taskAt(1) != nullptr);
 	QVERIFY(job.taskAt(2) != nullptr);
 	QCOMPARE(job.taskAt(0)->hash(), "7eace48ad685f3eb0887d4e30779dcad7c6e4ec7ac1285ab26d70c29bee6b85d");
 	QCOMPARE(job.taskAt(1)->hash(), "9735cb842d3c8c19160c22c654fa6517264f2c2b1640617061834f4bf5c0f69c");
 	QCOMPARE(job.taskAt(2)->hash(), "2781dd49b1b6324252ad1fe4b6ace9eebf69ff92b0a853b50cacfd2494d49953");
+}
+
+void TestHashingJob::canceling()
+{
+	HashingJob job(QStringList{ "../lfolder" }, Algo::SHA2_256);
+
+	QSignalSpy canceledSpy(this, SIGNAL(cancelDetect()));
+	QSignalSpy permilliSpy(&job, SIGNAL(permilliUpdate(int)));
+	QVERIFY(canceledSpy.isValid());
+	QVERIFY(permilliSpy.isValid());
+	auto emitCanceled = [&] { emit cancelDetect(); };
+	connect(job.taskAt(0), &HashTask::canceled, emitCanceled);
+	connect(job.taskAt(1), &HashTask::canceled, emitCanceled);
+	connect(job.taskAt(2), &HashTask::canceled, emitCanceled);
+	connect(&job, &HashingJob::permilliUpdate, [&] {
+		if (job.permilliComplete() > 400)
+		{
+			job.cancelJobs();
+		}
+	});
+
+	job.startTasks();
+	QVERIFY(canceledSpy.wait(3000));
+	QCOMPARE_LT(job.tasksDone(), 3ull);
+	QCOMPARE_LT(job.permilliComplete(), 1000);
 }
 
 QTEST_MAIN(TestHashingJob)

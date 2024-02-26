@@ -20,6 +20,8 @@
 ***********************************************************************************************************************/
 
 #include "hashtasksmodel.hpp"
+#include "hashtask.hpp"
+#include "hashingjob.hpp"
 
 #include <QObject>
 #include <QTest>
@@ -30,14 +32,14 @@ class TestHashTasksModel : public QObject
 
 private slots:
 	void headerData();
-	void exists();
+	void basicState();
 };
 
 void TestHashTasksModel::headerData()
 {
 	HashTasksModel testModel;
 
-	QVERIFY(testModel.columnCount() == 3);
+	QCOMPARE(testModel.columnCount(), 3);
 
 	QVariant header0 = testModel.headerData(0, Qt::Horizontal),
 	         header1 = testModel.headerData(1, Qt::Horizontal),
@@ -52,9 +54,16 @@ void TestHashTasksModel::headerData()
 	QCOMPARE(header2.toString(), "Hash Function Result");
 }
 
-void TestHashTasksModel::exists()
+void TestHashTasksModel::basicState()
 {
-	QVERIFY(true);
+	HashTasksModel model;
+	model.setHashingJob(std::make_unique<HashingJob>(QStringList{ "../tfolder" }, Algo::SHA2_256));
+	QString absName = std::filesystem::absolute(std::filesystem::path("../tfolder/TestBlock3.txt")).u8string().c_str();
+	QCOMPARE(model.rowCount(), 5);
+	QCOMPARE(model.columnCount(), 3);
+	QCOMPARE(model.data(model.index(2, 0)), absName);
+	QCOMPARE(model.data(model.index(0, 1)), "256-bit Secure Hash Algorithm 2");
+	QCOMPARE(model.data(model.index(4, 2)), "Hash has not started");
 }
 
 QTEST_MAIN(TestHashTasksModel)

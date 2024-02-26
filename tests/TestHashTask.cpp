@@ -244,9 +244,12 @@ void TestHashTask::running()
 	HashTask task("../lfolder/LargeBlock3.txt", Algo::SHA2_256);
 	QSignalSpy progressSpy(&task, SIGNAL(updated(int)));
 	QSignalSpy completeSpy(&task, SIGNAL(completed()));
+	QVERIFY(progressSpy.isValid());
+	QVERIFY(completeSpy.isValid());
 	QObject::connect(&task, &HashTask::updated, &task, [&] {
 		qDebug() << "Hashing progress update: " << task.permilliComplete();
 	});
+
 	task.start();
 	QVERIFY(task.started());
 	QVERIFY(completeSpy.wait(3000));
@@ -254,7 +257,7 @@ void TestHashTask::running()
 	QVERIFY(task.isComplete());
 	QCOMPARE(task.permilliComplete(), 1000);
 	qDebug() << "Signals emitted for progress: " << progressSpy.size();
-	QVERIFY(!progressSpy.isEmpty());
+	QCOMPARE_GT(progressSpy.size(), 1);
 }
 
 void TestHashTask::pausing()
@@ -263,12 +266,16 @@ void TestHashTask::pausing()
 	QSignalSpy pausedSpy(&task, SIGNAL(paused()));
 	QSignalSpy unpausedSpy(&task, SIGNAL(unpaused()));
 	QSignalSpy completeSpy(&task, SIGNAL(completed()));
+	QVERIFY(pausedSpy.isValid());
+	QVERIFY(unpausedSpy.isValid());
+	QVERIFY(completeSpy.isValid());
 	QObject::connect(&task, &HashTask::updated, &task, [&] {
 		if (task.permilliComplete() > 400)
 		{
 			task.pause();
 		}
 	});
+
 	task.start();
 	QVERIFY(!task.isPaused());
 	QVERIFY(pausedSpy.wait(1000));
@@ -286,18 +293,21 @@ void TestHashTask::canceling()
 	HashTask task("../lfolder/LargeBlock3.txt", Algo::SHA2_256);
 	QSignalSpy canceledSpy(&task, SIGNAL(canceled()));
 	QSignalSpy completeSpy(&task, SIGNAL(completed()));
+	QVERIFY(canceledSpy.isValid());
+	QVERIFY(completeSpy.isValid());
 	QObject::connect(&task, &HashTask::updated, &task, [&] {
 		if (task.permilliComplete() > 400)
 		{
 			task.cancel();
 		}
 	});
+
 	task.start();
 	QVERIFY(!task.isComplete());
 	QVERIFY(canceledSpy.wait(3000));
 	QCOMPARE(task.hash(), "Canceled!");
 	QVERIFY(completeSpy.wait(1000));
-	QVERIFY(task.permilliComplete() < 1000);
+	QCOMPARE_LT(task.permilliComplete(), 1000);
 }
 
 QTEST_MAIN(TestHashTask)

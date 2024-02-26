@@ -58,7 +58,19 @@ void HashTasksModel::setHashingJob(std::unique_ptr<HashingJob> &&job)
 		im->curJob->cancelJobs();
 	}
 
+	for (size_t i = 0; i < job->numTasks(); ++i)
+	{
+		connect(job->taskAt(i), SIGNAL(dataChanged(int)), this, SLOT(hashUpdate(int)));
+	}
+
+	beginResetModel();
 	im->curJob = std::move(job);
+	endResetModel();
+}
+
+HashingJob *HashTasksModel::getHashingJob() const
+{
+	return im->curJob.get();
 }
 
 int HashTasksModel::rowCount(const QModelIndex &parent) const
@@ -126,7 +138,7 @@ QVariant HashTasksModel::data(const QModelIndex &index, int role) const
 
 QVariant HashTasksModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-	if (role == Qt::DisplayRole)
+	if (role == Qt::DisplayRole && orientation == Qt::Horizontal)
 	{
 		if (section >= 0 && section < 3)
 		{
@@ -137,4 +149,10 @@ QVariant HashTasksModel::headerData(int section, Qt::Orientation orientation, in
 	}
 
 	return QAbstractTableModel::headerData(section, orientation, role);
+}
+
+void HashTasksModel::hashUpdate(int ind)
+{
+	QModelIndex changed = index(ind, 2);
+	emit dataChanged(changed, changed);
 }

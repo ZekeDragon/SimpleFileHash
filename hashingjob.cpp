@@ -30,7 +30,8 @@
 struct HashingJob::Impl
 {
 	Impl(HashingJob *top, QStringList const &paths, Algo algo) :
-	    top(top)
+	    top(top),
+	    algo(algo)
 	{
 		for (QString const &path : paths)
 		{
@@ -49,17 +50,17 @@ struct HashingJob::Impl
 			{
 				if (std::filesystem::is_directory(stdPath))
 				{
-					addDirectory(stdPath, algo);
+					addDirectory(stdPath);
 				}
 				else
 				{
-					addTask(stdPath, algo);
+					addTask(stdPath);
 				}
 			}
 		}
 	}
 
-	void addDirectory(std::filesystem::path const &dir, Algo algo)
+	void addDirectory(std::filesystem::path const &dir)
 	{
 		typedef std::filesystem::directory_iterator DirIter;
 		directories << dir.u8string().c_str();
@@ -68,7 +69,7 @@ struct HashingJob::Impl
 		{
 			if (it->is_regular_file(checker))
 			{
-				addTask(it->path(), algo);
+				addTask(it->path());
 			}
 			else if (checker)
 			{
@@ -76,15 +77,15 @@ struct HashingJob::Impl
 			}
 			else if (checkSubdirectories && it->is_directory())
 			{
-				addDirectory(it->path(), algo);
+				addDirectory(it->path());
 			}
 		}
 	}
 
-	void addTask(std::filesystem::path const &path, Algo algo)
+	void addTask(std::filesystem::path const &path)
 	{
 		// Who needs smart pointers when you have QObject ownership?
-		taskQueue.push_back(new HashTask(path.u8string().c_str(), algo, false, top));
+		taskQueue.push_back(new HashTask(path.u8string().c_str(), algo, taskQueue.size(), false, top));
 		QObject::connect(taskQueue.back(), SIGNAL(updated(int)), top, SLOT(taskUpdate(int)));
 		QObject::connect(taskQueue.back(), SIGNAL(completed()), top, SLOT(taskFinished()));
 		QObject::connect(top, SIGNAL(tasksBegin()), taskQueue.back(), SLOT(start()));
@@ -95,6 +96,7 @@ struct HashingJob::Impl
 	HashingJob *top;
 	qsizetype tasksDone = 0, completed = 0;
 	bool checkSubdirectories = false;
+	Algo algo;
 	QStringList files, directories;
 	// You can't use emplace_back and keep HashTask local because QObject deletes the move constructor...
 	std::vector<HashTask *> taskQueue;
@@ -129,7 +131,7 @@ void HashingJob::startTasks()
 
 void HashingJob::cancelJobs()
 {
-
+	emit canceled();
 }
 
 size_t HashingJob::tasksDone() const
@@ -137,7 +139,7 @@ size_t HashingJob::tasksDone() const
 	return im->tasksDone;
 }
 
-int HashingJob::permilli() const
+int HashingJob::permilliComplete() const
 {
 	return im->files.size() ? static_cast<int>(im->completed / im->files.size()) : 1000;
 }
@@ -157,6 +159,11 @@ size_t HashingJob::numTasks() const
 	return im->taskQueue.size();
 }
 
+Algo HashingJob::getAlgo() const
+{
+	return im->algo;
+}
+
 void HashingJob::taskFinished()
 {
 	emit tasksDoneUpdate(++im->tasksDone);
@@ -168,11 +175,11 @@ void HashingJob::taskFinished()
 
 void HashingJob::taskUpdate(int change)
 {
-	int old = permilli();
+	int old = permilliComplete();
 	// On 64-bit platforms, there would need to be over 4 quadrillion files before this would overflow...
 	im->completed += change;
-	if (int n = permilli(); n > old)
+	if (int n = permilliComplete(); n > old)
 	{
-		emit permilliComplete(n);
+		emit permilliUpdate(n);
 	}
 }

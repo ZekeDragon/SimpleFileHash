@@ -22,8 +22,10 @@
 
 class HashProgressItemDelegate : public QStyledItemDelegate
 {
+	Q_OBJECT
+
 public:
-	HashProgressItemDelegate();
+	HashProgressItemDelegate(QObject *parent = nullptr);
 	virtual ~HashProgressItemDelegate();
 
 	void paint(QPainter *painter, QStyleOptionViewItem const &option, QModelIndex const &index) const override;
