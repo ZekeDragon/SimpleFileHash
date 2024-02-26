@@ -93,7 +93,7 @@ bool taskBody(QPromise<QString> &promise, CryptoPP::HashFilter &filter, std::fil
 
 	// This uses std::ifstream to avoid dependency on how Crypto++ opens files. This should work for all localities
 	// on all OS's.
-	std::ifstream stream(p);
+	std::ifstream stream(p, std::ios::binary);
 	CryptoPP::FileSource src(stream, false, new CryptoPP::Redirector(filter));
 	while (!promise.isCanceled() && numSteps--)
 	{
