@@ -36,6 +36,10 @@ public slots:
 	void startCancelButton();
 	void openFiles();
 	void openDirectory();
+	void newHashAlgorithm();
+
+	void openMatchWindow();
+	void openMatchFile();
 
 private:
 	struct Impl;

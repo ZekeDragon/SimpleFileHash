@@ -35,6 +35,8 @@ class HashingJob : public QObject
 
 public:
 	explicit HashingJob(QStringList const &paths, Algo algo, QObject *parent = nullptr);
+	explicit HashingJob(HashingJob const &other, Algo algo = Algo::None);
+	explicit HashingJob(HashingJob const &other, Algo algo, QObject *parent);
 	~HashingJob();
 
 	QStringList const &filePaths() const;

@@ -33,6 +33,11 @@ struct HashingJob::Impl
 	    top(top),
 	    algo(algo)
 	{
+		if (algo == Algo::None)
+		{
+			throw std::runtime_error("\"None\" was passed as the algorithm to a HashingJob, which is invalid.");
+		}
+
 		for (QString const &path : paths)
 		{
 			std::filesystem::path stdPath = path.toStdString();
@@ -43,8 +48,6 @@ struct HashingJob::Impl
 				// TODO: Implement user notification (for example with the status bar or a log of some kind).
 				continue;
 			}
-
-			qDebug() << "Absolute Path Found: " << stdPath.string();
 
 			if (std::filesystem::exists(stdPath, checker) && !checker)
 			{
@@ -90,7 +93,7 @@ struct HashingJob::Impl
 		QObject::connect(taskQueue.back(), SIGNAL(completed()), top, SLOT(taskFinished()));
 		QObject::connect(top, SIGNAL(tasksBegin()), taskQueue.back(), SLOT(start()));
 		QObject::connect(top, SIGNAL(canceled()), taskQueue.back(), SLOT(cancel()));
-		files << taskQueue.back()->filename();
+		files << taskQueue.back()->filepath();
 	}
 
 	HashingJob *top;
@@ -107,6 +110,18 @@ HashingJob::HashingJob(QStringList const &paths, Algo algo, QObject *parent) :
     im(std::make_unique<HashingJob::Impl>(this, paths, algo))
 {
 	// No implementation.
+}
+
+HashingJob::HashingJob(HashingJob const &other, Algo algo) :
+    HashingJob(other, algo, other.parent())
+{
+	// No implementation.
+}
+
+HashingJob::HashingJob(HashingJob const &other, Algo algo, QObject *parent) :
+    HashingJob(other.filePaths(), algo == Algo::None ? other.getAlgo() : algo, parent)
+{
+	im->directories = other.directories();
 }
 
 HashingJob::~HashingJob()

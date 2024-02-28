@@ -58,10 +58,9 @@ void TestHashTasksModel::basicState()
 {
 	HashTasksModel model;
 	model.setHashingJob(std::make_unique<HashingJob>(QStringList{ "../tfolder" }, Algo::SHA2_256));
-	QString absName = std::filesystem::absolute(std::filesystem::path("../tfolder/TestBlock3.txt")).u8string().c_str();
 	QCOMPARE(model.rowCount(), 5);
 	QCOMPARE(model.columnCount(), 3);
-	QCOMPARE(model.data(model.index(2, 0)), absName);
+	QCOMPARE(model.data(model.index(2, 0)), "TestBlock3.txt");
 	QCOMPARE(model.data(model.index(0, 1)), "256-bit Secure Hash Algorithm 2");
 	QCOMPARE(model.data(model.index(4, 2)), "Hash has not started");
 }

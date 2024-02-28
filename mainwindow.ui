@@ -68,7 +68,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QComboBox" name="comboBox">
+          <widget class="QComboBox" name="hashNamesBox">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -96,7 +96,17 @@
      </widget>
     </item>
     <item>
-     <widget class="QTableView" name="tableView"/>
+     <widget class="QTableView" name="tableView">
+      <attribute name="horizontalHeaderDefaultSectionSize">
+       <number>200</number>
+      </attribute>
+      <attribute name="horizontalHeaderStretchLastSection">
+       <bool>true</bool>
+      </attribute>
+      <attribute name="verticalHeaderVisible">
+       <bool>false</bool>
+      </attribute>
+     </widget>
     </item>
    </layout>
   </widget>
@@ -118,7 +128,23 @@
     <addaction name="separator"/>
     <addaction name="actionE_xit"/>
    </widget>
+   <widget class="QMenu" name="menu_Matching">
+    <property name="title">
+     <string>&amp;Matching</string>
+    </property>
+    <widget class="QMenu" name="menu_Match_Against">
+     <property name="title">
+      <string>&amp;Match Against</string>
+     </property>
+     <addaction name="action_Input"/>
+     <addaction name="action_Hashdeep_File"/>
+     <addaction name="actionHash_sum_File"/>
+    </widget>
+    <addaction name="action_Copy_All_Hashes"/>
+    <addaction name="menu_Match_Against"/>
+   </widget>
    <addaction name="menuSimple_Hash"/>
+   <addaction name="menu_Matching"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="action_Hash_Files">
@@ -137,6 +163,26 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Q</string>
+   </property>
+  </action>
+  <action name="action_Copy_All_Hashes">
+   <property name="text">
+    <string>&amp;Copy All Hashes</string>
+   </property>
+  </action>
+  <action name="action_Input">
+   <property name="text">
+    <string>&amp;Input</string>
+   </property>
+  </action>
+  <action name="action_Hashdeep_File">
+   <property name="text">
+    <string>&amp;Hashdeep File</string>
+   </property>
+  </action>
+  <action name="actionHash_sum_File">
+   <property name="text">
+    <string>Hash&amp;sum File</string>
    </property>
   </action>
  </widget>
@@ -211,5 +257,6 @@
   <slot>startCancelButton()</slot>
   <slot>openFiles()</slot>
   <slot>openDirectory()</slot>
+  <slot>newHashAlgorithm()</slot>
  </slots>
 </ui>

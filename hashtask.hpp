@@ -24,6 +24,8 @@
 #include <QString>
 #include <QFutureWatcher>
 
+#include <memory>
+
 #include "hashalgo.hpp"
 
 class HashTask : public QObject
@@ -31,12 +33,13 @@ class HashTask : public QObject
 	Q_OBJECT
 
 public:
-	HashTask(QString filename, Algo algo, size_t index = 0, bool startNow = false, QObject *parent = nullptr);
+	HashTask(QString const &filepath, Algo algo, size_t index = 0, bool startNow = false, QObject *parent = nullptr);
 	virtual ~HashTask();
 
 	int permilliComplete() const;
 	QString const &hash() const;
-	QString const &filename() const;
+	QString filename() const;
+	QString const &filepath() const;
 	Algo hashAlgo() const;
 	QString algoName() const;
 	bool isComplete() const;
@@ -69,9 +72,6 @@ private slots:
 	void suspendOff();
 
 private:
-	int millis;
-	Algo algorithm;
-	size_t ind;
-	QString hashStr, fName;
-	QFutureWatcher<QString> watcher;
+	struct Impl;
+	std::unique_ptr<Impl> im;
 };

@@ -29,6 +29,15 @@
 #include <QThreadPool>
 #include <QFileDialog>
 
+#include <QtSystemDetection>
+
+constexpr bool isWindows =
+#ifdef Q_OS_WINDOWS
+        true;
+#elif
+        false;
+#endif
+
 struct MainWindow::Impl
 {
 	Impl(MainWindow *top) :
@@ -41,6 +50,31 @@ struct MainWindow::Impl
 		delegate = new HashProgressItemDelegate(ui.tableView);
 		ui.tableView->setItemDelegateForColumn(2, delegate);
 		model.setHashingJob(std::make_unique<HashingJob>(QStringList{ "../tests/lfolder" }, Algo::SHA2_256));
+		populateAlgorithmNames();
+		QObject::connect(ui.hashNamesBox, SIGNAL(currentIndexChanged(int)), top, SLOT(newHashAlgorithm()));
+	}
+
+	void populateAlgorithmNames()
+	{
+		for (int i = 1; i < int(Algo::AlgoEnd); ++i)
+		{
+			ui.hashNamesBox->addItem(::algoName(Algo(i)));
+		}
+
+		ui.hashNamesBox->setCurrentIndex(int(Algo::SHA2_256) - 1);
+	}
+
+	Algo getNamedAlgo()
+	{
+		if (int index = ui.hashNamesBox->currentIndex() + 1; index < int(Algo::AlgoEnd))
+		{
+			return Algo(index);
+		}
+		else
+		{
+			throw std::runtime_error("The index of hashNamesBox is somehow greater "
+			                         "than the number of available hashes.");
+		}
 	}
 
 	Ui::MainWindow ui;
@@ -77,7 +111,7 @@ void MainWindow::startCancelButton()
 		{
 			if (job->taskAt(0)->started())
 			{
-				im->model.setHashingJob(std::make_unique<HashingJob>(job->filePaths(), job->getAlgo()));
+				im->model.setHashingJob(std::make_unique<HashingJob>(*job));
 				// Now job points to invalid data, so let's reset it.
 				job = im->model.getHashingJob();
 			}
@@ -91,11 +125,39 @@ void MainWindow::startCancelButton()
 void MainWindow::openFiles()
 {
 	QStringList files = QFileDialog::getOpenFileNames(this, tr("Select one or more files to Hash"));
-	im->model.setHashingJob(std::make_unique<HashingJob>(files, Algo::SHA2_256));
+	im->model.setHashingJob(std::make_unique<HashingJob>(files, im->getNamedAlgo()));
 	im->startedState = false;
 }
 
 void MainWindow::openDirectory()
+{
+	QString dirName;
+	if constexpr (isWindows)
+	{
+		dirName = tr("folder");
+	}
+	else
+	{
+		dirName = tr("directory");
+	}
+
+	QString directory = QFileDialog::getExistingDirectory(this, tr("Select a %1 to Hash").arg(dirName));
+	im->model.setHashingJob(std::make_unique<HashingJob>(QStringList{ directory }, im->getNamedAlgo()));
+	im->startedState = false;
+}
+
+void MainWindow::newHashAlgorithm()
+{
+	im->model.setHashingJob(std::make_unique<HashingJob>(*im->model.getHashingJob(), im->getNamedAlgo()));
+	im->startedState = false;
+}
+
+void MainWindow::openMatchWindow()
+{
+
+}
+
+void MainWindow::openMatchFile()
 {
 
 }
