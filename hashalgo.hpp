@@ -35,17 +35,86 @@ enum class Algo
 	SHA3_256,
 	SHA3_384,
 	SHA3_512,
+	BLAKE256,
+	BLAKE512,
 	BLAKE2s,
 	BLAKE2b,
+	BLAKE3_256,
+	BLAKE3_512,
 	Tiger,
 	Whirlpool,
-	MD4,
 	MD2,
+	MD4,
+	MD6,
+	RIPEMD,
+	RIPEMD128,
 	RIPEMD160,
 	RIPEMD256,
+	RIPEMD320,
+	Grostl,
 	SM3,
+	GOST_R,
+	Streebog,
 	AlgoEnd
 };
+
+constexpr bool isImplemented(Algo algo)
+{
+	using enum Algo;
+
+	switch (algo)
+	{
+	case MD5:
+	case SHA1:
+	case SHA2_224:
+	case SHA2_256:
+	case SHA2_384:
+	case SHA2_512:
+	case SHA3_224:
+	case SHA3_256:
+	case SHA3_384:
+	case SHA3_512:
+	case BLAKE2s:
+	case BLAKE2b:
+	case Tiger:
+	case Whirlpool:
+	case MD4:
+	case MD2:
+	case RIPEMD160:
+	case RIPEMD256:
+	case SM3: return true;
+	default: return false;
+	}
+}
+
+constexpr const char *algoShort(Algo algo)
+{
+	using enum Algo;
+
+	switch (algo)
+	{
+	case MD5: return "md5";
+	case SHA1: return "sha1";
+	case SHA2_224: return "sha224";
+	case SHA2_256: return "sha256";
+	case SHA2_384: return "sha384";
+	case SHA2_512: return "sha512";
+	case SHA3_224: return "sha3224";
+	case SHA3_256: return "sha3256";
+	case SHA3_384: return "sha3384";
+	case SHA3_512: return "sha3512";
+	case BLAKE2s: return "blake2s";
+	case BLAKE2b: return "blake2b";
+	case Tiger: return "tiger";
+	case Whirlpool: return "whirlpool";
+	case MD4: return "md4";
+	case MD2: return "md2";
+	case RIPEMD160: return "ripemd160";
+	case RIPEMD256: return "ripemd256";
+	case SM3: return "sm3";
+	default: return "none";
+	}
+}
 
 constexpr const char *algoName(Algo algo)
 {
@@ -75,3 +144,5 @@ constexpr const char *algoName(Algo algo)
 	default: return QT_TRANSLATE_NOOP("HashTask", "None");
 	}
 }
+
+Algo shortToAlgo(char const *shortName);

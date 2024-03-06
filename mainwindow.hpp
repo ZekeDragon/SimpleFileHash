@@ -29,7 +29,7 @@ class MainWindow : public QMainWindow
 	Q_OBJECT
 
 public:
-	MainWindow(QWidget *parent = nullptr);
+	MainWindow(const QStringList &startingFiles = {}, QWidget *parent = nullptr);
 	~MainWindow();
 
 public slots:

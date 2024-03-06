@@ -252,11 +252,28 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>action_Hash_Files</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>openFiles()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>380</x>
+     <y>265</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>startCancelButton()</slot>
   <slot>openFiles()</slot>
   <slot>openDirectory()</slot>
   <slot>newHashAlgorithm()</slot>
+  <slot>openPreferences()</slot>
  </slots>
 </ui>

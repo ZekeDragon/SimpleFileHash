@@ -13,6 +13,7 @@ set(TESTS_TO_EXECUTE
 )
 
 set(TEST_SOURCE_FILES ${TRANSLATE_SOURCES})
+list(REMOVE_ITEM TEST_SOURCE_FILES main.cpp)
 list(TRANSFORM TEST_SOURCE_FILES PREPEND "${SimpleFileHash_SOURCE_DIR}/")
 
 configure_file(SmallBlock.txt SmallBlock.txt COPYONLY)

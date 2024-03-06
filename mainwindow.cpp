@@ -25,40 +25,55 @@
 #include "hashingjob.hpp"
 #include "hashtask.hpp"
 #include "hashprogressitemdelegate.hpp"
+#include "filehashapplication.hpp"
+#include "preferencesdialog.hpp"
+#include "hashmatchwindow.hpp"
 
 #include <QThreadPool>
 #include <QFileDialog>
 
 #include <QtSystemDetection>
 
-constexpr bool isWindows =
+// All this so I can have if constexpr!
+constexpr bool isWindows = false
 #ifdef Q_OS_WINDOWS
-        true;
-#elif
-        false;
+                           || true
 #endif
+                           ;
 
 struct MainWindow::Impl
 {
-	Impl(MainWindow *top) :
+	Impl(MainWindow *top, QStringList const &startingFiles) :
+	    pDialog(top),
+	    settings(FileHashApplication::fileApp()->settings()),
 	    top(top)
 	{
 		ui.setupUi(top);
-
 		ui.tableView->setModel(&model);
 		// Must parent with tableView because setItemDelegateForColumn does not take ownership.
-		delegate = new HashProgressItemDelegate(ui.tableView);
-		ui.tableView->setItemDelegateForColumn(2, delegate);
-		model.setHashingJob(std::make_unique<HashingJob>(QStringList{ "../tests/lfolder" }, Algo::SHA2_256));
+		ui.tableView->setItemDelegateForColumn(2, new HashProgressItemDelegate(ui.tableView));
+		if (!startingFiles.empty())
+		{
+			model.setHashingJob(std::make_unique<HashingJob>(startingFiles, settings.userDefaultAlgorithm()));
+		}
+
+		algos.reserve(size_t(Algo::AlgoEnd));
 		populateAlgorithmNames();
 		QObject::connect(ui.hashNamesBox, SIGNAL(currentIndexChanged(int)), top, SLOT(newHashAlgorithm()));
+		QObject::connect(ui.action_Preferences, SIGNAL(triggered()), &pDialog, SLOT(open()));
 	}
 
 	void populateAlgorithmNames()
 	{
+		algos.clear();
+		ui.hashNamesBox->clear();
 		for (int i = 1; i < int(Algo::AlgoEnd); ++i)
 		{
-			ui.hashNamesBox->addItem(::algoName(Algo(i)));
+			if (Algo algo = Algo(i); isImplemented(algo))
+			{
+				algos.push_back(algo);
+				ui.hashNamesBox->addItem(::algoName(algo));
+			}
 		}
 
 		ui.hashNamesBox->setCurrentIndex(int(Algo::SHA2_256) - 1);
@@ -66,9 +81,9 @@ struct MainWindow::Impl
 
 	Algo getNamedAlgo()
 	{
-		if (int index = ui.hashNamesBox->currentIndex() + 1; index < int(Algo::AlgoEnd))
+		if (int index = ui.hashNamesBox->currentIndex(); index < int(algos.size()))
 		{
-			return Algo(index);
+			return algos[index];
 		}
 		else
 		{
@@ -79,14 +94,18 @@ struct MainWindow::Impl
 
 	Ui::MainWindow ui;
 	HashTasksModel model;
-	HashProgressItemDelegate *delegate;
+	std::vector<Algo> algos;
+	PreferencesDialog pDialog;
+	// Do not parent the "window" below, it is just a QWidget and would be added to the MainWindow layout!
+	HashMatchWindow matchWin;
+	UserSettings &settings;
 	MainWindow *top;
 	bool startedState = false;
 };
 
-MainWindow::MainWindow(QWidget *parent) :
+MainWindow::MainWindow(QStringList const &startingFiles, QWidget *parent) :
     QMainWindow(parent),
-    im(std::make_unique<MainWindow::Impl>(this))
+    im(std::make_unique<MainWindow::Impl>(this, startingFiles))
 {
 	// No implementation.
 }
@@ -104,6 +123,7 @@ void MainWindow::startCancelButton()
 	{
 		job->cancelJobs();
 		im->startedState = false;
+		im->ui.startCancelButton->setText(tr("Start Hashing!"));
 	}
 	else
 	{
@@ -118,6 +138,7 @@ void MainWindow::startCancelButton()
 
 			job->startTasks();
 			im->startedState = true;
+			im->ui.startCancelButton->setText(tr("Cancel Hashing!"));
 		}
 	}
 }

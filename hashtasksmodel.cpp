@@ -95,11 +95,13 @@ int HashTasksModel::columnCount(const QModelIndex &parent) const
 
 QVariant HashTasksModel::data(const QModelIndex &index, int role) const
 {
-	if (index.row() < rowCount() && index.column() < 3)
+	if (index.row() >= 0 && index.row() < rowCount() && index.column() >= 0 && index.column() < 3)
 	{
 		HashTask *task = im->curJob->taskAt(index.row());
-		if (role == Qt::DisplayRole)
+		switch (role)
 		{
+		case Qt::DisplayRole:
+		case Qt::EditRole:
 			if (index.column() == 0)
 			{
 				return task->filename();
@@ -108,28 +110,66 @@ QVariant HashTasksModel::data(const QModelIndex &index, int role) const
 			{
 				return task->algoName();
 			}
-			else if (index.column() == 2)
+			else if (task->isComplete())
 			{
-				if (task->isComplete())
-				{
-					return task->hash();
-				}
-
-				return task->permilliComplete();
+				return task->hash();
 			}
-		}
-		else if (role == Qt::FontRole)
-		{
+
+			return task->permilliComplete();
+
+		case Qt::ToolTipRole:
+			if (index.column() == 0)
+			{
+				return tr("The name of the file being hashed.");
+			}
+			else if (index.column() == 1)
+			{
+				return tr("The hashing function in use.");
+			}
+			else if (task->isComplete())
+			{
+				return tr("Copy this or use the Hash Match Window to compare with the known hashes.");
+			}
+
+			return tr("The status of the hashing job.");
+
+		case Qt::WhatsThisRole:
+			if (index.column() == 0)
+			{
+				return tr("This is where the \"file name\" of the file you are making a hash of is displayed.\n"
+				          "This does not include the rest of the file path, but should have the full name on\n"
+				          "display. You can compare your known hashes to the ones generated using these names.");
+			}
+			if (index.column() == 1)
+			{
+				return tr("This is the \"hash function\" that is being used by this application to hash your\n"
+				          "file. A hash function is a long series of math that is intended to uniquely identify\n"
+				          "your file from all other files in a manner that prevents any other file from pretending\n"
+				          "they are your file. File hashing is a fundamental part of computer security.");
+			}
+
+			return tr("This is where the completed hash is displayed when it is done, and the status of the\n"
+			          "hash job when it is not. There will be a loading bar for each hashing operation that\n"
+			          "will update regularly, so with long-running hashes you can watch the progress. This\n"
+			          "software is designed to be multi-threaded, so multiple bars should be going at the same\n"
+			          "time.");
+
+		case Qt::FontRole:
 			return QApplication::font();
-		}
-		else if (role == Qt::TextAlignmentRole)
-		{
-			if (task->isComplete())
+
+		case Qt::TextAlignmentRole:
+			if (index.column() < 2 || task->isComplete())
 			{
 				return Qt::AlignLeft;
 			}
 
 			return Qt::AlignHCenter;
+
+		case Qt::InitialSortOrderRole:
+			if (index.column() == 0)
+			{
+				return Qt::AscendingOrder;
+			}
 		}
 	}
 

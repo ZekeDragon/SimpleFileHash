@@ -1,6 +1,6 @@
 /***********************************************************************************************************************
 ** The Simple Qt File Hashing Application
-** hashprogressitemdelegate.hpp
+** preferencesdialog.cpp
 ** Copyright (C) 2024 Ezekiel Oruven
 **
 ** This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
@@ -18,23 +18,29 @@
 ** You should have received a copy of the GNU Affero General Public License along with this program.  If not, see
 ** <http://www.gnu.org/licenses/>.
 ***********************************************************************************************************************/
-#pragma once
+#include "preferencesdialog.hpp"
+#include "ui_preferencesdialog.h"
 
-#include <QStyledItemDelegate>
-
-#include <memory>
-
-class HashProgressItemDelegate : public QStyledItemDelegate
+struct PreferencesDialog::Impl
 {
-	Q_OBJECT
+	Impl(PreferencesDialog *top) :
+	    top(top)
+	{
+		ui.setupUi(top);
+	}
 
-public:
-	HashProgressItemDelegate(QObject *parent = nullptr);
-	virtual ~HashProgressItemDelegate();
-
-	void paint(QPainter *painter, QStyleOptionViewItem const &option, QModelIndex const &index) const override;
-
-private:
-	std::unique_ptr<QStyleOptionProgressBar> pBar;
+	PreferencesDialog *top;
+	Ui::PreferencesDialog ui;
 };
 
+PreferencesDialog::PreferencesDialog(QWidget *parent) :
+    QDialog(parent),
+    im(std::make_unique<PreferencesDialog::Impl>(this))
+{
+	// No implementation.
+}
+
+PreferencesDialog::~PreferencesDialog()
+{
+	// No implementation.
+}

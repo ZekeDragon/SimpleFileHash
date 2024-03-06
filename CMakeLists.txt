@@ -47,14 +47,26 @@ set(TS_FILES
 set(TRANSLATE_SOURCES
     main.cpp
     hashalgo.hpp
+    filehashapplication.hpp
+    filehashapplication.cpp
     hashtask.hpp
     hashtask.cpp
     hashprogressitemdelegate.hpp
     hashprogressitemdelegate.cpp
     hashtasksmodel.hpp
     hashtasksmodel.cpp
+    hashmatchwindow.hpp
+    hashmatchwindow.cpp
+    hashmatchwindow.ui
+    preferencesdialog.hpp
+    preferencesdialog.cpp
+    preferencesdialog.ui
     hashingjob.hpp
     hashingjob.cpp
+    usersettings.hpp
+    usersettings.cpp
+    md5hash.hpp
+    md5hash.cpp
     mainwindow.cpp
     mainwindow.hpp
     mainwindow.ui

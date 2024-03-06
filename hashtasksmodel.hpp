@@ -26,6 +26,9 @@
 
 class HashingJob;
 
+/*!
+ * \brief The HashTasksModel class
+ */
 class HashTasksModel : public QAbstractTableModel
 {
 	Q_OBJECT

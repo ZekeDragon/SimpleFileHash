@@ -20,6 +20,8 @@
 ***********************************************************************************************************************/
 #include "hashtask.hpp"
 
+#include "md5hash.hpp"
+
 #include <filesystem>
 #include <fstream>
 
@@ -46,64 +48,33 @@
 
 constexpr size_t PUMP_AMOUNT = 4096;
 
-struct HashTask::Impl
+struct Hasher
 {
-	Impl(HashTask *top, QString const &filepath, Algo algo, size_t index, bool startNow) :
-	    top(top),
-	    algorithm(algo),
-	    ind(index),
-	    fName(filepath)
-	{
-		connect(&watcher, SIGNAL(suspended()), top, SLOT(suspendOn()));
-		connect(&watcher, SIGNAL(resumed()), top, SLOT(suspendOff()));
-		connect(&watcher, SIGNAL(progressValueChanged(int)), top, SLOT(jobUpdate(int)));
-		connect(&watcher, SIGNAL(resultReadyAt(int)), top, SLOT(hashComplete()));
-		connect(&watcher, SIGNAL(finished()), top, SLOT(finished()));
+	virtual ~Hasher() = default;
+	virtual bool run(QPromise<QString> &promise, std::string &result, std::filesystem::path const &path) = 0;
+};
 
-		if (startNow)
+struct MD5Hasher : public Hasher
+{
+	constexpr static char const hexAlphabet[] = "0123456789abcdef";
+
+	inline void fillHexFromBytes(std::string &result, Md5Sum sum)
+	{
+		result.clear();
+		result.reserve(sum.size() * 2);
+
+		for (int i = 0; i < 16; ++i)
 		{
-			start();
+			std::string::value_type c = std::to_integer<std::string::value_type>(sum[i]);
+
+			result.push_back(hexAlphabet[(c >> 4) & 0b1111]);
+			result.push_back(hexAlphabet[(c >> 0) & 0b1111]);
 		}
 	}
 
-	static void exceptionWith(QPromise<QString> &promise, QString const &message, std::exception_ptr ptr)
+	bool run(QPromise<QString> &promise, std::string &result, std::filesystem::path const &p) override
 	{
-		promise.addResult(message);
-		promise.setException(ptr);
-	}
-
-	static std::unique_ptr<CryptoPP::HashTransformation> getTransform(Algo algo)
-	{
-		using namespace CryptoPP;
-		using std::make_unique;
-
-		switch (algo)
-		{
-		case Algo::MD5: return make_unique<Weak::MD5>();
-		case Algo::SHA1: return make_unique<SHA1>();
-		case Algo::SHA2_224: return make_unique<SHA224>();
-		case Algo::SHA2_256: return make_unique<SHA256>();
-		case Algo::SHA2_384: return make_unique<SHA384>();
-		case Algo::SHA2_512: return make_unique<SHA512>();
-		case Algo::SHA3_224: return make_unique<SHA3_224>();
-		case Algo::SHA3_256: return make_unique<SHA3_256>();
-		case Algo::SHA3_384: return make_unique<SHA3_384>();
-		case Algo::SHA3_512: return make_unique<SHA3_512>();
-		case Algo::BLAKE2b: return make_unique<BLAKE2b>();
-		case Algo::BLAKE2s: return make_unique<BLAKE2s>();
-		case Algo::Tiger: return make_unique<Tiger>();
-		case Algo::Whirlpool: return make_unique<Whirlpool>();
-		case Algo::MD4: return make_unique<Weak::MD4>();
-		case Algo::MD2: return make_unique<Weak::MD2>();
-		case Algo::RIPEMD160: return make_unique<RIPEMD160>();
-		case Algo::RIPEMD256: return make_unique<RIPEMD256>();
-		case Algo::SM3: return make_unique<SM3>();
-		default: return {};
-		}
-	}
-
-	static bool taskBody(QPromise<QString> &promise, CryptoPP::HashFilter &filter, std::filesystem::path p)
-	{
+		Md5Hash hashObj;
 		uintmax_t completed = 0, fileSize = std::filesystem::file_size(p);
 		size_t numSteps = fileSize / PUMP_AMOUNT;
 		int lastReport = 0;
@@ -112,10 +83,95 @@ struct HashTask::Impl
 			++numSteps;
 		}
 
-		// This uses std::ifstream to avoid dependency on how Crypto++ opens files. This should work for all localities
-		// on all OS's.
+		// This uses std::ifstream to avoid dependency on how Crypto++ opens files. This should work for all
+		// localities on all OS's.
+		std::basic_ifstream<std::byte> stream(p, std::ios::binary);
+		std::byte buffer[PUMP_AMOUNT];
+		while (!promise.isCanceled() && numSteps--)
+		{
+			stream.read(buffer, PUMP_AMOUNT);
+			completed += hashObj.provideInput(stream.gcount(), buffer);
+			// This ensures that "update(1000)" isn't called until complete is ready (IE the hash is truly
+			// done).
+			int permilliEst = std::min(int((double(completed) / double(fileSize)) * 1000.), 999);
+			if (permilliEst > lastReport)
+			{
+				lastReport = permilliEst;
+				promise.setProgressValue(permilliEst);
+			}
+
+			promise.suspendIfRequested();
+		}
+
+		if (!promise.isCanceled())
+		{
+			fillHexFromBytes(result, hashObj.getMd5());
+			return true;
+		}
+
+		return false;
+	}
+};
+
+struct CryptoPPHasher : public Hasher
+{
+	CryptoPPHasher(Algo algo) :
+	    tPtr(getTransform(algo))
+	{
+		if (!tPtr)
+		{
+			// Throw an exception here.
+		}
+	}
+
+	std::unique_ptr<CryptoPP::HashTransformation> getTransform(Algo algo)
+	{
+		namespace C = CryptoPP;
+		using std::make_unique;
+		using enum Algo;
+
+		switch (algo)
+		{
+		case MD5: return make_unique<C::Weak::MD5>();
+		case SHA1: return make_unique<C::SHA1>();
+		case SHA2_224: return make_unique<C::SHA224>();
+		case SHA2_256: return make_unique<C::SHA256>();
+		case SHA2_384: return make_unique<C::SHA384>();
+		case SHA2_512: return make_unique<C::SHA512>();
+		case SHA3_224: return make_unique<C::SHA3_224>();
+		case SHA3_256: return make_unique<C::SHA3_256>();
+		case SHA3_384: return make_unique<C::SHA3_384>();
+		case SHA3_512: return make_unique<C::SHA3_512>();
+		case BLAKE2b: return make_unique<C::BLAKE2b>();
+		case BLAKE2s: return make_unique<C::BLAKE2s>();
+		case Tiger: return make_unique<C::Tiger>();
+		case Whirlpool: return make_unique<C::Whirlpool>();
+		case MD4: return make_unique<C::Weak::MD4>();
+		case MD2: return make_unique<C::Weak::MD2>();
+		case RIPEMD160: return make_unique<C::RIPEMD160>();
+		case RIPEMD256: return make_unique<C::RIPEMD256>();
+		case SM3: return make_unique<C::SM3>();
+		default: return {};
+		}
+	}
+
+	bool run(QPromise<QString> &promise, std::string &result, std::filesystem::path const &p) override
+	{
+		using namespace CryptoPP;
+
+		HashFilter filter(*tPtr, new HexEncoder(new StringSink(result), false));
+		uintmax_t completed = 0, fileSize = std::filesystem::file_size(p);
+		size_t numSteps = fileSize / PUMP_AMOUNT;
+		int lastReport = 0;
+		if (fileSize % PUMP_AMOUNT)
+		{
+			++numSteps;
+		}
+
+		// This uses std::ifstream to avoid dependency on how Crypto++ opens files. This should work for all
+		// localities on all OS's.
 		std::ifstream stream(p, std::ios::binary);
-		CryptoPP::FileSource src(stream, false, new CryptoPP::Redirector(filter));
+		FileSource src(stream, false, new Redirector(filter));
 		while (!promise.isCanceled() && numSteps--)
 		{
 			completed += src.Pump(PUMP_AMOUNT);
@@ -140,10 +196,47 @@ struct HashTask::Impl
 		return false;
 	}
 
+	std::unique_ptr<CryptoPP::HashTransformation> tPtr;
+};
+
+struct HashTask::Impl
+{
+	Impl(HashTask *top, QString const &filepath, Algo algo, size_t index, bool startNow) :
+	    top(top),
+	    algorithm(algo),
+	    ind(index),
+	    fName(filepath)
+	{
+		connect(&watcher, SIGNAL(suspended()), top, SLOT(suspendOn()));
+		connect(&watcher, SIGNAL(resumed()), top, SLOT(suspendOff()));
+		connect(&watcher, SIGNAL(progressValueChanged(int)), top, SLOT(jobUpdate(int)));
+		connect(&watcher, SIGNAL(resultReadyAt(int)), top, SLOT(hashComplete()));
+		connect(&watcher, SIGNAL(finished()), top, SLOT(finished()));
+
+		if (startNow)
+		{
+			start();
+		}
+	}
+
+	static std::unique_ptr<Hasher> makeHasher(Algo algo)
+	{
+		if (algo == Algo::MD5)
+		{
+			return std::make_unique<MD5Hasher>();
+		}
+		else if (isImplemented(algo))
+		{
+			return std::make_unique<CryptoPPHasher>(algo);
+		}
+		else
+		{
+			return {};
+		}
+	}
+
 	static void runHashNow(QPromise<QString> &promise, QString fName, Algo algorithm)
 	{
-		using namespace CryptoPP;
-
 		try
 		{
 			std::filesystem::path filePath(fName.toStdString());
@@ -156,12 +249,10 @@ struct HashTask::Impl
 			{
 				promise.addResult(HashTask::tr("The file provided is not a regular file."));
 			}
-			else if (auto transform = getTransform(algorithm))
+			else if (auto hasher = makeHasher(algorithm))
 			{
 				std::string result;
-				HashFilter filter(*transform, new HexEncoder(new StringSink(result), false));
-
-				if (taskBody(promise, filter, filePath))
+				if (hasher->run(promise, result, filePath))
 				{
 					promise.setProgressValue(1000);
 					promise.addResult(result.c_str());
@@ -213,15 +304,15 @@ struct HashTask::Impl
 	void start()
 	{
 		auto fileSourceErrHandler = [f = fName](CryptoPP::FileSource::Err err) {
-			outputCryptoPPWarning(f, err, tr("Error"));
+			outputCryptoPPWarning(f, err, tr("error"));
 			return HashTask::tr("Unknown error from Crypto++");
 		};
 		auto fileSourceReadErrHandler = [f = fName](CryptoPP::FileSource::ReadErr err) {
-			outputCryptoPPWarning(f, err, tr("Read Error"));
+			outputCryptoPPWarning(f, err, tr("read error"));
 			return HashTask::tr("Could not read the provided file");
 		};
 		auto fileSourceOpenErrHandler = [f = fName](CryptoPP::FileSource::OpenErr err) {
-			outputCryptoPPWarning(f, err, tr("Open Error"));
+			outputCryptoPPWarning(f, err, tr("open error"));
 			return HashTask::tr("Failed to open the file provided");
 		};
 		auto filesystemErrHandler = [f = fName](std::filesystem::filesystem_error err) {
@@ -245,8 +336,9 @@ struct HashTask::Impl
 		if (millis == -1)
 		{
 			watcher.setFuture(QtConcurrent::run(runHashNow, fName, algorithm));
-			// Chaining onFailed() from the QFuture returned by run is broken for some reason. The returned QFuture doesn't
-			// correctly maintain the values passed to QPromise::setProgressRange(), so I had to resort to the below.
+			// Chaining onFailed() from the QFuture returned by run is broken for some reason. The returned QFuture
+			// doesn't correctly maintain the values passed to QPromise::setProgressRange(), so I had to resort to the
+			// below.
 			watcher.future().onFailed(fileSourceOpenErrHandler);
 			watcher.future().onFailed(fileSourceReadErrHandler);
 			watcher.future().onFailed(fileSourceErrHandler);

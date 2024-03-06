@@ -1,7 +1,7 @@
 /***********************************************************************************************************************
-** The Simple Qt File Hashing Application
-** hashprogressitemdelegate.hpp
-** Copyright (C) 2024 Ezekiel Oruven
+** {{ project }}
+** hashmatchwindow.hpp
+** Copyright (C) 2023 KirHut Security Company
 **
 ** This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
 ** Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any
@@ -11,30 +11,27 @@
 ** warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 ** details.
 **
-** The Qt library that this application depends on is itself a special exception to the Affero General Public License's
-** requirements. The library may be separately distributed under the terms of the Library General Public License that
-** Qt Software originally licensed the library under.
-**
 ** You should have received a copy of the GNU Affero General Public License along with this program.  If not, see
 ** <http://www.gnu.org/licenses/>.
 ***********************************************************************************************************************/
 #pragma once
 
-#include <QStyledItemDelegate>
+#include <QWidget>
 
-#include <memory>
+namespace Ui {
+class HashMatchWindow;
+}
 
-class HashProgressItemDelegate : public QStyledItemDelegate
+class HashMatchWindow : public QWidget
 {
 	Q_OBJECT
 
 public:
-	HashProgressItemDelegate(QObject *parent = nullptr);
-	virtual ~HashProgressItemDelegate();
-
-	void paint(QPainter *painter, QStyleOptionViewItem const &option, QModelIndex const &index) const override;
+	explicit HashMatchWindow(QWidget *parent = nullptr);
+	~HashMatchWindow();
 
 private:
-	std::unique_ptr<QStyleOptionProgressBar> pBar;
+	struct Impl;
+	std::unique_ptr<Impl> im;
 };
 
