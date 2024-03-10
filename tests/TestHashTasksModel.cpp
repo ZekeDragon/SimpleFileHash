@@ -26,6 +26,8 @@
 #include <QObject>
 #include <QTest>
 
+using namespace KirHut::SFH;
+
 class TestHashTasksModel : public QObject
 {
 	Q_OBJECT

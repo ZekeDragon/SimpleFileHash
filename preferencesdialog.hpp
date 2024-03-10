@@ -22,18 +22,26 @@
 
 #include <QDialog>
 
-#include <memory>
+#include "sfhbase.hpp"
+#include "hashalgo.hpp"
+
+namespace KirHut::SFH
+{
 
 class PreferencesDialog : public QDialog
 {
 	Q_OBJECT
 
 public:
-	explicit PreferencesDialog(QWidget *parent = nullptr);
+	explicit PreferencesDialog(const std::vector<Algo> &algos, QWidget *parent = nullptr);
 	~PreferencesDialog();
+
+protected:
+	void closeEvent(QCloseEvent *event) override;
 
 private:
 	struct Impl;
-	std::unique_ptr<Impl> im;
+	unique_ptr<Impl> im;
 };
 
+}

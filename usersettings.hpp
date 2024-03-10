@@ -24,7 +24,11 @@
 #include <QPoint>
 #include <QSize>
 
+#include "sfhbase.hpp"
 #include "hashalgo.hpp"
+
+namespace KirHut::SFH
+{
 
 /*!
  * Class that provides access to the applications global user settings.
@@ -39,9 +43,7 @@
  * or after the set occurred, but setting from two threads can and will result in undefined behavior.
  *
  * NOTE: This class is not considered thread-safe in any way. This class should only be accessed or used by the main
- * GUI thread and no other thread. This class creates a static object in the global() method that parses all of the
- * settings then returns them as needed. This avoids recreating QSettings objects and overall reduces system demand at
- * the cost of reentrancy.
+ * GUI thread and no other thread.
  */
 class UserSettings
 {
@@ -57,37 +59,45 @@ public:
 	 *
 	 * \return a new UserSettings object.
 	 */
-	static std::unique_ptr<UserSettings> make(QString const &orgName, QString const &appName);
+	static unique_ptr<UserSettings> make(QString const &orgName, QString const &appName);
 
-	virtual int mainWindowWidth() const = 0;
-	virtual int mainWindowHeight() const = 0;
-	virtual QSize mainWindowSize() const;
-	virtual int mainWindowXLocation() const = 0;
-	virtual int mainWindowYLocation() const = 0;
-	virtual QPoint mainWindowLocation() const;
-	virtual int prefDialogXLocation() const = 0;
-	virtual int prefDialogYLocation() const = 0;
-	virtual QPoint prefDialogLocation() const;
-	virtual int hashWindowWidth() const = 0;
-	virtual int hashWindowHeight() const = 0;
-	virtual QSize hashWindowSize() const;
-	virtual int hashWindowXLocation() const = 0;
-	virtual int hashWindowYLocation() const = 0;
-	virtual QPoint hashWindowLocation() const;
-	virtual QString userLocality() const = 0;
+	/*!
+	 * Create a new UserSettings object.
+	 *
+	 * Do not call this method before creating your QApplication object. This returns a new UserSettings object,
+	 * which is the only supported method of using the UserSettings class. This object interacts with the QSettings
+	 * object internally, and provides a convenient way for the application to communicate with the system settings.
+	 *
+	 * \return a new UserSettings object.
+	 */
+	static unique_ptr<UserSettings> make();
+
+	enum class Theme
+	{
+		System,
+		Light,
+		Dark
+	};
+
+	using enum Theme;
+
+	virtual QByteArray mainWindowGeometry() const = 0;
+	virtual QByteArray prefDialogGeometry() const = 0;
+	virtual QByteArray hashWindowGeometry() const = 0;
+	virtual QByteArray hashWindowSplitterState() const = 0;
+	virtual QString userLocale() const = 0;
 	virtual Algo userDefaultAlgorithm() const = 0;
-	virtual bool darkMode() const = 0;
+	virtual Theme theme() const = 0;
 	virtual bool navigateSubdirectories() const = 0;
 	virtual QList<Algo> const &contextMenuAlgos() const = 0;
 
-	virtual void setMainWindowSize(QSize const &size) = 0;
-	virtual void setMainWindowLocation(QPoint const &location) = 0;
-	virtual void setPrefDialogLocation(QPoint const &location) = 0;
-	virtual void setHashWindowSize(QSize const &size) = 0;
-	virtual void setHashWindowLocation(QPoint const &location) = 0;
+	virtual void setMainWindowGeometry(QByteArray const &geometry) = 0;
+	virtual void setPrefDialogGeometry(QByteArray const &geometry) = 0;
+	virtual void setHashWindowGeometry(QByteArray const &geometry) = 0;
+	virtual void setHashWindowSplitterState(QByteArray const &state) = 0;
 	virtual void setUserLocale(QString const &locale) = 0;
 	virtual void setUserDefaultAlgorithm(Algo algo) = 0;
-	virtual void setDarkMode(bool isDark) = 0;
+	virtual void setTheme(Theme theme) = 0;
 	virtual void setSubdirectoryNavigate(bool navigate) = 0;
 	virtual void addContextMenuAlgo(Algo algo) = 0;
 	virtual void removeContextMenuAlgo(Algo algo) = 0;
@@ -103,3 +113,4 @@ protected:
 	UserSettings() = default;
 };
 
+}

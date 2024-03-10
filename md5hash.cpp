@@ -25,6 +25,8 @@
 
 #include <QtSystemDetection>
 
+using namespace KirHut;
+
 // Ordinarily, you'd just detect if we are building with MSVC by checking if _MSC_VER is defined. The problem is that
 // Clang is a massive PITA and defines _MSC_VER itself. To ONLY build this on MSVC, I also have to check if Clang is
 // not defined. That said, because most language servers use Clang as a backend, it will almost always look like on your

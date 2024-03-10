@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 3.21)
 enable_testing()
 
 set(TESTS_TO_EXECUTE
+    HashAlgo
     HashTask
     HashingJob
     HashTasksModel

@@ -27,6 +27,13 @@
 
 #include <QDebug>
 
+namespace KirHut::SFH
+{
+using std::vector;
+using std::error_code;
+using std::runtime_error;
+namespace FS = std::filesystem;
+
 struct HashingJob::Impl
 {
 	Impl(HashingJob *top, QStringList const &paths, Algo algo) :
@@ -35,23 +42,25 @@ struct HashingJob::Impl
 	{
 		if (algo == Algo::None)
 		{
-			throw std::runtime_error("\"None\" was passed as the algorithm to a HashingJob, which is invalid.");
+			throw runtime_error("\"None\" was passed as the algorithm to a HashingJob, which is invalid.");
 		}
+
+		FS::path stdPath;
 
 		for (QString const &path : paths)
 		{
-			std::filesystem::path stdPath = path.toStdString();
-			std::error_code checker;
-			if (stdPath = std::filesystem::absolute(stdPath, checker); checker)
+			stdPath = path.toStdString();
+			error_code checker;
+			if (stdPath = FS::absolute(stdPath, checker); checker)
 			{
 				// If we can't derive an absolute path from a relative path, just skip it.
 				// TODO: Implement user notification (for example with the status bar or a log of some kind).
 				continue;
 			}
 
-			if (std::filesystem::exists(stdPath, checker) && !checker)
+			if (FS::exists(stdPath, checker) && !checker)
 			{
-				if (std::filesystem::is_directory(stdPath))
+				if (FS::is_directory(stdPath))
 				{
 					addDirectory(stdPath);
 				}
@@ -61,13 +70,18 @@ struct HashingJob::Impl
 				}
 			}
 		}
+
+		if (taskQueue.size() == 1)
+		{
+			initSingleFile(stdPath);
+		}
 	}
 
-	void addDirectory(std::filesystem::path const &dir)
+	void addDirectory(FS::path const &dir)
 	{
-		typedef std::filesystem::directory_iterator DirIter;
+		typedef FS::directory_iterator DirIter;
 		directories << dir.u8string().c_str();
-		std::error_code checker;
+		error_code checker;
 		for (DirIter it(dir, checker); it != DirIter(); ++it)
 		{
 			if (it->is_regular_file(checker))
@@ -85,20 +99,43 @@ struct HashingJob::Impl
 		}
 	}
 
-	void addTask(std::filesystem::path const &path)
+	void addTask(FS::path const &path)
+	{
+		pushTask(path, algo);
+		files << taskQueue.back()->filepath();
+	}
+
+	void initSingleFile(FS::path const &path)
+	{
+		HashTask *saved = taskQueue.front();
+		taskQueue.clear();
+
+		for (Algo const *a = algosBegin(); a != algosEnd(); ++a)
+		{
+			if (*a == saved->hashAlgo())
+			{
+				taskQueue.push_back(saved);
+			}
+			else
+			{
+				pushTask(path, *a);
+			}
+		}
+	}
+
+	void pushTask(FS::path const &path, Algo a)
 	{
 		// Who needs smart pointers when you have QObject ownership?
-		taskQueue.push_back(new HashTask(path.u8string().c_str(), algo, taskQueue.size(), false, top));
+		taskQueue.push_back(new HashTask(path.u8string().c_str(), a, taskQueue.size(), false, top));
 		QObject::connect(taskQueue.back(), SIGNAL(updated(int)), top, SLOT(taskUpdate(int)));
 		QObject::connect(taskQueue.back(), SIGNAL(completed()), top, SLOT(taskFinished()));
 		QObject::connect(top, SIGNAL(tasksBegin()), taskQueue.back(), SLOT(start()));
 		QObject::connect(top, SIGNAL(canceled()), taskQueue.back(), SLOT(cancel()));
-		files << taskQueue.back()->filepath();
 	}
 
 	HashingJob *top;
 	qsizetype tasksDone = 0, completed = 0;
-	bool checkSubdirectories = false;
+	bool checkSubdirectories = false, canceled = false;;
 	Algo algo;
 	QStringList files, directories;
 	// You can't use emplace_back and keep HashTask local because QObject deletes the move constructor...
@@ -107,7 +144,7 @@ struct HashingJob::Impl
 
 HashingJob::HashingJob(QStringList const &paths, Algo algo, QObject *parent) :
     QObject(parent),
-    im(std::make_unique<HashingJob::Impl>(this, paths, algo))
+    im(make_unique<HashingJob::Impl>(this, paths, algo))
 {
 	// No implementation.
 }
@@ -146,6 +183,7 @@ void HashingJob::startTasks()
 
 void HashingJob::cancelJobs()
 {
+	im->canceled = true;
 	emit canceled();
 }
 
@@ -181,10 +219,13 @@ Algo HashingJob::getAlgo() const
 
 void HashingJob::taskFinished()
 {
-	emit tasksDoneUpdate(++im->tasksDone);
-	if (im->tasksDone == im->files.size())
+	if (!im->canceled)
 	{
-		emit jobComplete();
+		emit tasksDoneUpdate(++im->tasksDone);
+		if (im->tasksDone == im->files.size())
+		{
+			emit jobComplete();
+		}
 	}
 }
 
@@ -197,4 +238,6 @@ void HashingJob::taskUpdate(int change)
 	{
 		emit permilliUpdate(n);
 	}
+}
+
 }

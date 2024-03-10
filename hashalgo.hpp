@@ -22,6 +22,9 @@
 
 #include <QtGlobal>
 
+namespace KirHut::SFH
+{
+
 enum class Algo
 {
 	None = 0,
@@ -45,7 +48,7 @@ enum class Algo
 	Whirlpool,
 	MD2,
 	MD4,
-	MD6,
+	MD6_256,
 	RIPEMD,
 	RIPEMD128,
 	RIPEMD160,
@@ -55,6 +58,10 @@ enum class Algo
 	SM3,
 	GOST_R,
 	Streebog,
+	MD6_128,
+	MD6_224,
+	MD6_384,
+	MD6_512,
 	AlgoEnd
 };
 
@@ -82,67 +89,26 @@ constexpr bool isImplemented(Algo algo)
 	case MD2:
 	case RIPEMD160:
 	case RIPEMD256:
+	case MD6_128:
+	case MD6_224:
+	case MD6_256:
+	case MD6_384:
+	case MD6_512:
 	case SM3: return true;
 	default: return false;
 	}
 }
 
-constexpr const char *algoShort(Algo algo)
-{
-	using enum Algo;
-
-	switch (algo)
-	{
-	case MD5: return "md5";
-	case SHA1: return "sha1";
-	case SHA2_224: return "sha224";
-	case SHA2_256: return "sha256";
-	case SHA2_384: return "sha384";
-	case SHA2_512: return "sha512";
-	case SHA3_224: return "sha3224";
-	case SHA3_256: return "sha3256";
-	case SHA3_384: return "sha3384";
-	case SHA3_512: return "sha3512";
-	case BLAKE2s: return "blake2s";
-	case BLAKE2b: return "blake2b";
-	case Tiger: return "tiger";
-	case Whirlpool: return "whirlpool";
-	case MD4: return "md4";
-	case MD2: return "md2";
-	case RIPEMD160: return "ripemd160";
-	case RIPEMD256: return "ripemd256";
-	case SM3: return "sm3";
-	default: return "none";
-	}
-}
-
-constexpr const char *algoName(Algo algo)
-{
-	using enum Algo;
-
-	switch (algo)
-	{
-	case MD5: return QT_TRANSLATE_NOOP("HashTask", "Message Digest 5");
-	case SHA1: return QT_TRANSLATE_NOOP("HashTask", "Secure Hash Algorithm 1");
-	case SHA2_224: return QT_TRANSLATE_NOOP("HashTask", "224-bit Secure Hash Algorithm 2");
-	case SHA2_256: return QT_TRANSLATE_NOOP("HashTask", "256-bit Secure Hash Algorithm 2");
-	case SHA2_384: return QT_TRANSLATE_NOOP("HashTask", "384-bit Secure Hash Algorithm 2");
-	case SHA2_512: return QT_TRANSLATE_NOOP("HashTask", "512-bit Secure Hash Algorithm 2");
-	case SHA3_224: return QT_TRANSLATE_NOOP("HashTask", "224-bit Secure Hash Algorithm 3");
-	case SHA3_256: return QT_TRANSLATE_NOOP("HashTask", "256-bit Secure Hash Algorithm 3");
-	case SHA3_384: return QT_TRANSLATE_NOOP("HashTask", "384-bit Secure Hash Algorithm 3");
-	case SHA3_512: return QT_TRANSLATE_NOOP("HashTask", "512-bit Secure Hash Algorithm 3");
-	case BLAKE2s: return QT_TRANSLATE_NOOP("HashTask", "BLAKE2s Hash");
-	case BLAKE2b: return QT_TRANSLATE_NOOP("HashTask", "BLAKE2b Hash");
-	case Tiger: return QT_TRANSLATE_NOOP("HashTask", "Tiger Hash");
-	case Whirlpool: return QT_TRANSLATE_NOOP("HashTask", "Whirlpool Hash");
-	case MD4: return QT_TRANSLATE_NOOP("HashTask", "Message Digest 4");
-	case MD2: return QT_TRANSLATE_NOOP("HashTask", "Message Digest 2");
-	case RIPEMD160: return QT_TRANSLATE_NOOP("HashTask", "RIPE Message Digest-160");
-	case RIPEMD256: return QT_TRANSLATE_NOOP("HashTask", "RIPE Message Digest-256");
-	case SM3: return QT_TRANSLATE_NOOP("HashTask", "ShangMi 3 Hash");
-	default: return QT_TRANSLATE_NOOP("HashTask", "None");
-	}
-}
-
+const char *algoShort(Algo algo);
 Algo shortToAlgo(char const *shortName);
+
+const char *const *sNamesBegin();
+const char *const *sNamesEnd();
+
+size_t numImplementedAlgos();
+Algo const *algosBegin();
+Algo const *algosEnd();
+
+QString algoName(Algo algo);
+
+}

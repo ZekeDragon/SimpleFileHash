@@ -79,6 +79,9 @@
          </item>
          <item>
           <widget class="QPushButton" name="startCancelButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="minimumSize">
             <size>
              <width>150</width>

@@ -22,78 +22,41 @@
 
 #include <QSettings>
 
+using namespace KirHut::SFH;
+
 struct UserSettingsImpl : public UserSettings
 {
 	UserSettingsImpl(QString const &orgName, QString const &appName) :
 	    sets(orgName, appName)
 	{
-		sets.beginGroup("contextalgos");
-		for (QString const &key : sets.allKeys())
-		{
-			if (sets.value(key).toBool())
-			{
-				algos.push_back(shortToAlgo(key.toStdString().c_str()));
-			}
-		}
-		sets.endGroup();
+		init();
 	}
-
-	int mainWindowWidth() const override
+	UserSettingsImpl()
 	{
-		return sets.value("mainwindow/width", -1).toInt();
+		init();
 	}
 
-	int mainWindowHeight() const override
+	QByteArray mainWindowGeometry() const override
 	{
-		return sets.value("mainwindow/height", -1).toInt();
+		return getBytes("mainwindow/geometry");
 	}
 
-	int mainWindowXLocation() const override
+	QByteArray prefDialogGeometry() const override
 	{
-		return sets.value("mainwindow/xloc", -1).toInt();
+		return getBytes("prefdialog/geometry");
 	}
 
-	int mainWindowYLocation() const override
+	QByteArray hashWindowGeometry() const override
 	{
-		return sets.value("mainwindow/yloc", -1).toInt();
+		return getBytes("hashmatch/geometry");
 	}
 
-	int prefDialogXLocation() const override
+	QByteArray hashWindowSplitterState() const override
 	{
-		return sets.value("prefdialog/xloc", -1).toInt();
+		return getBytes("hashmatch/splitter");
 	}
 
-	int prefDialogYLocation() const override
-	{
-		return sets.value("prefdialog/yloc", -1).toInt();
-	}
-
-	int hashWindowWidth() const override
-	{
-		return sets.value("hashmatch/width", -1).toInt();
-	}
-
-	int hashWindowHeight() const override
-	{
-		return sets.value("hashmatch/height", -1).toInt();
-	}
-
-	int hashWindowXLocation() const override
-	{
-		return sets.value("hashmatch/xloc", -1).toInt();
-	}
-
-	int hashWindowYLocation() const override
-	{
-		return sets.value("hashmatch/yloc", -1).toInt();
-	}
-
-	QByteArray hashWindowSplitterData() const
-	{
-		return sets.value("hashmatch/splitter").toByteArray();
-	}
-
-	QString userLocality() const override
+	QString userLocale() const override
 	{
 		return sets.value("locale", {}).toString();
 	}
@@ -103,14 +66,19 @@ struct UserSettingsImpl : public UserSettings
 		return Algo(sets.value("defaultalgo", int(Algo::SHA2_256)).toInt());
 	}
 
-	bool darkMode() const override
+	Theme theme() const override
 	{
-		return sets.value("darkmode", false).toBool();
+		if (sets.contains("darkmode"))
+		{
+			return sets.value("darkmode").toBool() ? Dark : Light;
+		}
+
+		return System;
 	}
 
 	bool navigateSubdirectories() const override
 	{
-		return sets.value("entersubdirs", false).toBool();
+		return sets.value("entersubdirs").toBool();
 	}
 
 	QList<Algo> const &contextMenuAlgos() const override
@@ -118,39 +86,24 @@ struct UserSettingsImpl : public UserSettings
 		return algos;
 	}
 
-	void setMainWindowSize(QSize const &size) override
+	void setMainWindowGeometry(QByteArray const &geometry) override
 	{
-		sets.beginGroup("mainwindow");
-		setSizes(size);
-		sets.endGroup();
+		sets.setValue("mainwindow/geometry", geometry);
 	}
 
-	void setMainWindowLocation(QPoint const &location) override
+	void setPrefDialogGeometry(QByteArray const &geometry) override
 	{
-		sets.beginGroup("mainwindow");
-		setPosition(location);
-		sets.endGroup();
+		sets.setValue("prefdialog/geometry", geometry);
 	}
 
-	void setPrefDialogLocation(QPoint const &location) override
+	void setHashWindowGeometry(QByteArray const &geometry) override
 	{
-		sets.beginGroup("prefdialog");
-		setPosition(location);
-		sets.endGroup();
+		sets.setValue("hashmatch/geometry", geometry);
 	}
 
-	void setHashWindowSize(QSize const &size) override
+	void setHashWindowSplitterState(QByteArray const &state) override
 	{
-		sets.beginGroup("hashmatch");
-		setSizes(size);
-		sets.endGroup();
-	}
-
-	void setHashWindowLocation(QPoint const &location) override
-	{
-		sets.beginGroup("hashmatch");
-		setPosition(location);
-		sets.endGroup();
+		sets.setValue("hashmatch/splitter", state);
 	}
 
 	void setUserLocale(QString const &locale) override
@@ -166,9 +119,14 @@ struct UserSettingsImpl : public UserSettings
 		}
 	}
 
-	void setDarkMode(bool isDark) override
+	void setTheme(Theme theme) override
 	{
-		sets.setValue("darkmode", isDark);
+		if (theme == System)
+		{
+			sets.remove("darkmode");
+		}
+
+		sets.setValue("darkmode", theme == Dark);
 	}
 
 	void setSubdirectoryNavigate(bool navigate) override
@@ -205,47 +163,34 @@ struct UserSettingsImpl : public UserSettings
 		algos.clear();
 	}
 
-	void setPosition(QPoint const &point)
+	QByteArray getBytes(char const *key) const
 	{
-		sets.setValue("xloc", point.x());
-		sets.setValue("yloc", point.y());
+		return sets.value(key, {}).toByteArray();
 	}
-	void setSizes(QSize const &size)
+
+	void init()
 	{
-		sets.setValue("width", size.width());
-		sets.setValue("height", size.height());
+		sets.beginGroup("contextalgos");
+		for (QString const &key : sets.allKeys())
+		{
+			if (sets.value(key).toBool())
+			{
+				algos.push_back(shortToAlgo(key.toStdString().c_str()));
+			}
+		}
+		sets.endGroup();
 	}
 
 	QSettings sets;
 	QList<Algo> algos;
 };
 
-std::unique_ptr<UserSettings> UserSettings::make(QString const &orgName, QString const &appName)
+unique_ptr<UserSettings> UserSettings::make(QString const &orgName, QString const &appName)
 {
-	return std::make_unique<UserSettingsImpl>(orgName, appName);
+	return make_unique<UserSettingsImpl>(orgName, appName);
 }
 
-QSize UserSettings::mainWindowSize() const
+std::unique_ptr<UserSettings> UserSettings::make()
 {
-	return { mainWindowWidth(), mainWindowHeight() };
-}
-
-QPoint UserSettings::mainWindowLocation() const
-{
-	return { mainWindowXLocation(), mainWindowYLocation() };
-}
-
-QPoint UserSettings::prefDialogLocation() const
-{
-	return { prefDialogXLocation(), prefDialogYLocation() };
-}
-
-QSize UserSettings::hashWindowSize() const
-{
-	return { hashWindowWidth(), hashWindowHeight() };
-}
-
-QPoint UserSettings::hashWindowLocation() const
-{
-	return { hashWindowXLocation(), hashWindowYLocation() };
+	return make_unique<UserSettingsImpl>();
 }

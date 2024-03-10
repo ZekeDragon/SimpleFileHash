@@ -1,7 +1,7 @@
 /***********************************************************************************************************************
-** {{ project }}
+** The Simple Qt File Hashing Application
 ** filehashapplication.cpp
-** Copyright (C) 2023 KirHut Security Company
+** Copyright (C) 2024 Ezekiel Oruven
 **
 ** This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
 ** Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any
@@ -10,6 +10,10 @@
 ** This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
 ** warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 ** details.
+**
+** The Qt library that this application depends on is itself a special exception to the Affero General Public License's
+** requirements. The library may be separately distributed under the terms of the Library General Public License that
+** Qt Software originally licensed the library under.
 **
 ** You should have received a copy of the GNU Affero General Public License along with this program.  If not, see
 ** <http://www.gnu.org/licenses/>.
@@ -23,20 +27,7 @@
 #include <QLocale>
 #include <QTranslator>
 
-Algo shortToAlgo(char const *shortName)
-{
-	using enum Algo;
-
-	static std::unordered_map<std::string, Algo> algoNames {
-		{ "md5", MD5 },	            { "sha1", SHA1 },           { "sha224", SHA2_224 },  { "sha256", SHA2_256 },
-		{ "sha384", SHA2_384 },     { "sha512", SHA2_512 },     { "sha3224", SHA3_224 }, { "sha3256", SHA3_256 },
-		{ "sha3384", SHA3_384 },    { "sha3512", SHA3_512 },    { "blake2s", BLAKE2s },  { "blake2b", BLAKE2b },
-		{ "tiger", Tiger },         { "whirlpool", Whirlpool }, { "md2", MD2 },          { "md4", MD4 },
-		{ "ripemd160", RIPEMD160 }, { "ripemd256", RIPEMD256 }, { "sm3", SM3 }
-	};
-
-	return algoNames[shortName];
-}
+using namespace KirHut::SFH;
 
 struct FileHashImpl : public FileHashApplication
 {
@@ -48,7 +39,7 @@ struct FileHashImpl : public FileHashApplication
 		mainPtr = this;
 
 		QStringList uiLanguages = QLocale::system().uiLanguages();
-		if (QString locale = settingsPtr->userLocality(); !locale.isEmpty())
+		if (QString locale = settingsPtr->userLocale(); !locale.isEmpty())
 		{
 			uiLanguages.push_front(locale);
 		}
@@ -58,6 +49,7 @@ struct FileHashImpl : public FileHashApplication
 			if (translator.load(":/i18n/SimpleFileHash_" + QLocale(locale).name()))
 			{
 				app.installTranslator(&translator);
+				curLocale = locale;
 				break;
 			}
 		}
@@ -78,6 +70,11 @@ struct FileHashImpl : public FileHashApplication
 	UserSettings &settings() override
 	{
 		return *settingsPtr;
+	}
+
+	QString const &locale() override
+	{
+		return curLocale;
 	}
 
 	constexpr char const *organizationName()
@@ -109,12 +106,13 @@ struct FileHashImpl : public FileHashApplication
 
 	QApplication app;
 	QTranslator translator;
-	std::unique_ptr<UserSettings> settingsPtr;
+	QString curLocale = "en";
+	unique_ptr<UserSettings> settingsPtr;
 };
 
-std::unique_ptr<FileHashApplication> FileHashApplication::start(int argc, char **argv)
+unique_ptr<FileHashApplication> FileHashApplication::start(int argc, char **argv)
 {
-	return std::make_unique<FileHashImpl>(argc, argv);
+	return make_unique<FileHashImpl>(argc, argv);
 }
 
 FileHashApplication *FileHashApplication::fileApp()

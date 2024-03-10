@@ -22,10 +22,13 @@
 
 #include <QStyleOptionProgressBar>
 #include <QApplication>
+#include <QStringBuilder>
+
+using namespace KirHut::SFH;
 
 HashProgressItemDelegate::HashProgressItemDelegate(QObject *parent) :
     QStyledItemDelegate(parent),
-    pBar(std::make_unique<QStyleOptionProgressBar>())
+    pBar(make_unique<QStyleOptionProgressBar>())
 {
 	pBar->minimum = 0;
 	pBar->maximum = 1000;
@@ -49,7 +52,7 @@ void HashProgressItemDelegate::paint(QPainter *painter,
 
 			pBar->rect = option.rect;
 			pBar->progress = millis;
-			pBar->text = QString::number(millis / 10) + "." + QString::number(millis % 10) + "%";
+			pBar->text = QString::number(millis / 10) % "." % QString::number(millis % 10) % "%";
 
 			QApplication::style()->drawControl(QStyle::CE_ProgressBar, pBar.get(), painter);
 

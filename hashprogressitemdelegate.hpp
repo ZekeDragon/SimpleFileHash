@@ -22,7 +22,10 @@
 
 #include <QStyledItemDelegate>
 
-#include <memory>
+#include "sfhbase.hpp"
+
+namespace KirHut::SFH
+{
 
 class HashProgressItemDelegate : public QStyledItemDelegate
 {
@@ -35,6 +38,7 @@ public:
 	void paint(QPainter *painter, QStyleOptionViewItem const &option, QModelIndex const &index) const override;
 
 private:
-	std::unique_ptr<QStyleOptionProgressBar> pBar;
+	unique_ptr<QStyleOptionProgressBar> pBar;
 };
 
+}

@@ -29,10 +29,21 @@
 #include "preferencesdialog.hpp"
 #include "hashmatchwindow.hpp"
 
+#include <algorithm>
+#include <ranges>
+#include <iterator>
+
 #include <QThreadPool>
 #include <QFileDialog>
+#include <QClipboard>
+#include <QStringBuilder>
+#include <QProgressBar>
 
 #include <QtSystemDetection>
+
+namespace KirHut::SFH
+{
+namespace R = std::ranges;
 
 // All this so I can have if constexpr!
 constexpr bool isWindows = false
@@ -41,12 +52,21 @@ constexpr bool isWindows = false
 #endif
                            ;
 
+enum class RunState
+{
+	Empty,
+	Ready,
+	Running,
+	Finished
+};
+
 struct MainWindow::Impl
 {
 	Impl(MainWindow *top, QStringList const &startingFiles) :
-	    pDialog(top),
 	    settings(FileHashApplication::fileApp()->settings()),
-	    top(top)
+	    pDialog(algos, top),
+	    top(top),
+	    state(RunState::Empty)
 	{
 		ui.setupUi(top);
 		ui.tableView->setModel(&model);
@@ -54,29 +74,89 @@ struct MainWindow::Impl
 		ui.tableView->setItemDelegateForColumn(2, new HashProgressItemDelegate(ui.tableView));
 		if (!startingFiles.empty())
 		{
-			model.setHashingJob(std::make_unique<HashingJob>(startingFiles, settings.userDefaultAlgorithm()));
+			model.setHashingJob(make_unique<HashingJob>(startingFiles, settings.userDefaultAlgorithm()));
 		}
 
-		algos.reserve(size_t(Algo::AlgoEnd));
-		populateAlgorithmNames();
+		if (QByteArray geometry = settings.mainWindowGeometry(); !geometry.isEmpty())
+		{
+			top->restoreGeometry(geometry);
+		}
+
+		jobBar.setVisible(false);
+		jobBar.setRange(0, 1000);
+		ui.statusbar->addPermanentWidget(&jobBar);
+
+		initAlgoNamesBox();
 		QObject::connect(ui.hashNamesBox, SIGNAL(currentIndexChanged(int)), top, SLOT(newHashAlgorithm()));
 		QObject::connect(ui.action_Preferences, SIGNAL(triggered()), &pDialog, SLOT(open()));
+		QObject::connect(ui.action_Input, SIGNAL(triggered()), &matchWin, SLOT(show()));
 	}
 
-	void populateAlgorithmNames()
+	void initAlgoNamesBox()
 	{
-		algos.clear();
 		ui.hashNamesBox->clear();
-		for (int i = 1; i < int(Algo::AlgoEnd); ++i)
+		int index = 0;
+		bool found = false;
+		Algo def = settings.userDefaultAlgorithm();
+		for (Algo algo : algos)
 		{
-			if (Algo algo = Algo(i); isImplemented(algo))
+			ui.hashNamesBox->addItem(algoName(algo));
+			if (!(found = found || algo == def))
 			{
-				algos.push_back(algo);
-				ui.hashNamesBox->addItem(::algoName(algo));
+				++index;
 			}
 		}
 
-		ui.hashNamesBox->setCurrentIndex(int(Algo::SHA2_256) - 1);
+		ui.hashNamesBox->setCurrentIndex(found ? index : algoIndex(Algo::SHA2_256));
+	}
+
+	void hashingReady()
+	{
+		state = RunState::Ready;
+		ui.startCancelButton->setEnabled(true);
+		jobBar.setVisible(false);
+		ui.startCancelButton->setText(tr("Start Hashing!"));
+	}
+
+	void hashingStarted()
+	{
+		state = RunState::Running;
+		jobBar.setVisible(true);
+		ui.startCancelButton->setText(tr("Cancel Hashing!"));
+	}
+
+	void hashingFinished()
+	{
+		state = RunState::Finished;
+		jobBar.setVisible(false);
+		ui.startCancelButton->setText(tr("Copy Hashes!"));
+	}
+
+	int algoIndex(Algo algo)
+	{
+		if (auto loc = R::find(algos, algo); loc != R::end(algos))
+		{
+			return int(R::distance(R::begin(algos), loc));
+		}
+
+		return -1;
+	}
+
+	void initHashingJob(QStringList const &files)
+	{
+		initHashingJob(make_unique<HashingJob>(files, getNamedAlgo()));
+	}
+	void initHashingJob(HashingJob const &toCopy, Algo toUse = Algo::None)
+	{
+		initHashingJob(make_unique<HashingJob>(toCopy, toUse));
+	}
+	void initHashingJob(unique_ptr<HashingJob> &&job)
+	{
+		QObject::connect(job.get(), SIGNAL(jobComplete()), top, SLOT(jobFinished()));
+		QObject::connect(job.get(), SIGNAL(canceled()), top, SLOT(jobCanceled()));
+		QObject::connect(job.get(), SIGNAL(permilliUpdate(int)), &jobBar, SLOT(setValue(int)));
+		jobBar.setValue(0);
+		model.setHashingJob(std::move(job));
 	}
 
 	Algo getNamedAlgo()
@@ -92,20 +172,38 @@ struct MainWindow::Impl
 		}
 	}
 
+	struct AlgoList : public std::vector<Algo>
+	{
+		AlgoList()
+		{
+			using Algo::AlgoEnd;
+
+			reserve(size_t(AlgoEnd));
+			for (int i = 1; i < int(AlgoEnd); ++i)
+			{
+				if (Algo algo = Algo(i); isImplemented(algo))
+				{
+					push_back(algo);
+				}
+			}
+		}
+	};
+
 	Ui::MainWindow ui;
+	UserSettings &settings;
 	HashTasksModel model;
-	std::vector<Algo> algos;
+	AlgoList algos;
 	PreferencesDialog pDialog;
 	// Do not parent the "window" below, it is just a QWidget and would be added to the MainWindow layout!
 	HashMatchWindow matchWin;
-	UserSettings &settings;
+	QProgressBar jobBar;
 	MainWindow *top;
-	bool startedState = false;
+	RunState state;
 };
 
 MainWindow::MainWindow(QStringList const &startingFiles, QWidget *parent) :
     QMainWindow(parent),
-    im(std::make_unique<MainWindow::Impl>(this, startingFiles))
+    im(make_unique<MainWindow::Impl>(this, startingFiles))
 {
 	// No implementation.
 }
@@ -119,35 +217,44 @@ void MainWindow::startCancelButton()
 {
 	HashingJob *job = im->model.getHashingJob();
 
-	if (im->startedState)
+	switch (im->state)
 	{
-		job->cancelJobs();
-		im->startedState = false;
-		im->ui.startCancelButton->setText(tr("Start Hashing!"));
-	}
-	else
-	{
-		if (job && job->numTasks() > 0)
-		{
-			if (job->taskAt(0)->started())
-			{
-				im->model.setHashingJob(std::make_unique<HashingJob>(*job));
-				// Now job points to invalid data, so let's reset it.
-				job = im->model.getHashingJob();
-			}
+	case RunState::Empty:
+		break;
 
-			job->startTasks();
-			im->startedState = true;
-			im->ui.startCancelButton->setText(tr("Cancel Hashing!"));
+	case RunState::Ready:
+		if (job->taskAt(0)->started())
+		{
+			im->initHashingJob(*job);
+			// Now job points to invalid data, so let's reset it.
+			job = im->model.getHashingJob();
 		}
+
+		im->hashingStarted();
+		job->startTasks();
+		break;
+
+	case RunState::Running:
+		job->cancelJobs();
+		im->hashingReady();
+		break;
+
+	case RunState::Finished:
+		QString accum;
+		for (size_t i = 0; i < job->numTasks(); ++i)
+		{
+			accum.append(job->taskAt(i)->hash() + "\n");
+		}
+
+		qApp->clipboard()->setText(accum);
 	}
 }
 
 void MainWindow::openFiles()
 {
 	QStringList files = QFileDialog::getOpenFileNames(this, tr("Select one or more files to Hash"));
-	im->model.setHashingJob(std::make_unique<HashingJob>(files, im->getNamedAlgo()));
-	im->startedState = false;
+	im->initHashingJob(files);
+	im->hashingReady();
 }
 
 void MainWindow::openDirectory()
@@ -163,22 +270,42 @@ void MainWindow::openDirectory()
 	}
 
 	QString directory = QFileDialog::getExistingDirectory(this, tr("Select a %1 to Hash").arg(dirName));
-	im->model.setHashingJob(std::make_unique<HashingJob>(QStringList{ directory }, im->getNamedAlgo()));
-	im->startedState = false;
+	im->initHashingJob(QStringList{ directory });
+	im->hashingReady();
 }
 
 void MainWindow::newHashAlgorithm()
 {
-	im->model.setHashingJob(std::make_unique<HashingJob>(*im->model.getHashingJob(), im->getNamedAlgo()));
-	im->startedState = false;
-}
+	switch (im->state)
+	{
+	case RunState::Finished:
+	case RunState::Ready:
+		im->initHashingJob(*im->model.getHashingJob(), im->getNamedAlgo());
+		im->hashingReady();
 
-void MainWindow::openMatchWindow()
-{
-
+	default:;
+	}
 }
 
 void MainWindow::openMatchFile()
 {
+
+}
+
+void MainWindow::jobFinished()
+{
+	im->hashingFinished();
+}
+
+void MainWindow::jobCanceled()
+{
+	im->hashingReady();
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+	FileHashApplication::fileApp()->settings().setMainWindowGeometry(saveGeometry());
+	QMainWindow::closeEvent(event);
+}
 
 }

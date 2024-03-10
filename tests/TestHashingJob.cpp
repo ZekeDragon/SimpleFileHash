@@ -31,6 +31,8 @@
 #include <vector>
 #include <array>
 
+using namespace KirHut::SFH;
+
 class TestHashingJob : public QObject
 {
 	Q_OBJECT

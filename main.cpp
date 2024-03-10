@@ -22,5 +22,5 @@
 
 int main(int argc, char *argv[])
 {
-	return FileHashApplication::start(argc, argv)->exec();
+	return KirHut::SFH::FileHashApplication::start(argc, argv)->exec();
 }

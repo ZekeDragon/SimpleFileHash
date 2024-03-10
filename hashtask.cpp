@@ -46,51 +46,57 @@
 #include <cryptopp/md4.h>
 #include <cryptopp/md2.h>
 
+#include "md6/md6.hpp"
+
+namespace KirHut::SFH
+{
+using KirHut::Md5Hash;
+using KirHut::Md5Sum;
+
+using std::string;
+using std::bit_cast;
+using std::ifstream;
+namespace C = CryptoPP;
+namespace FS = std::filesystem;
+
 constexpr size_t PUMP_AMOUNT = 4096;
 
 struct Hasher
 {
 	virtual ~Hasher() = default;
-	virtual bool run(QPromise<QString> &promise, std::string &result, std::filesystem::path const &path) = 0;
+	virtual bool run(QPromise<QString> &promise, string &result, FS::path const &path) = 0;
 };
 
 struct MD5Hasher : public Hasher
 {
 	constexpr static char const hexAlphabet[] = "0123456789abcdef";
 
-	inline void fillHexFromBytes(std::string &result, Md5Sum sum)
+	inline void fillHexFromBytes(string &result, Md5Sum sum)
 	{
 		result.clear();
 		result.reserve(sum.size() * 2);
 
 		for (int i = 0; i < 16; ++i)
 		{
-			std::string::value_type c = std::to_integer<std::string::value_type>(sum[i]);
+			string::value_type c = bit_cast<string::value_type>(sum[i]);
 
 			result.push_back(hexAlphabet[(c >> 4) & 0b1111]);
 			result.push_back(hexAlphabet[(c >> 0) & 0b1111]);
 		}
 	}
 
-	bool run(QPromise<QString> &promise, std::string &result, std::filesystem::path const &p) override
+	bool run(QPromise<QString> &promise, string &result, FS::path const &p) override
 	{
 		Md5Hash hashObj;
-		uintmax_t completed = 0, fileSize = std::filesystem::file_size(p);
-		size_t numSteps = fileSize / PUMP_AMOUNT;
+		uintmax_t completed = 0, fileSize = FS::file_size(p);
 		int lastReport = 0;
-		if (fileSize % PUMP_AMOUNT)
-		{
-			++numSteps;
-		}
 
-		// This uses std::ifstream to avoid dependency on how Crypto++ opens files. This should work for all
-		// localities on all OS's.
-		std::basic_ifstream<std::byte> stream(p, std::ios::binary);
-		std::byte buffer[PUMP_AMOUNT];
-		while (!promise.isCanceled() && numSteps--)
+		ifstream stream(p, std::ios::binary);
+		char buffer[PUMP_AMOUNT];
+		while (!promise.isCanceled() && completed != fileSize)
 		{
 			stream.read(buffer, PUMP_AMOUNT);
-			completed += hashObj.provideInput(stream.gcount(), buffer);
+			completed += hashObj.provideInput(stream.gcount(), reinterpret_cast<std::byte *>(buffer));
 			// This ensures that "update(1000)" isn't called until complete is ready (IE the hash is truly
 			// done).
 			int permilliEst = std::min(int((double(completed) / double(fileSize)) * 1000.), 999);
@@ -113,6 +119,76 @@ struct MD5Hasher : public Hasher
 	}
 };
 
+struct MD6Hasher : public Hasher
+{
+	MD6Hasher(Algo algo)
+	{
+		switch (algo)
+		{
+		case Algo::MD6_224:
+			md6Size = 28;
+			break;
+
+		case Algo::MD6_256:
+			md6Size = 32;
+			break;
+
+		case Algo::MD6_384:
+			md6Size = 48;
+			break;
+
+		case Algo::MD6_512:
+			md6Size = 64;
+			break;
+
+		default:;
+		}
+	}
+
+	bool run(QPromise<QString> &promise, string &result, FS::path const &p) override
+	{
+		md6_init(&state, md6Size * 8);
+		uintmax_t completed = 0, fileSize = FS::file_size(p);
+		int lastReport = 0;
+
+		ifstream stream(p, std::ios::binary);
+		unsigned char buffer[PUMP_AMOUNT];
+		while (!promise.isCanceled() && completed != fileSize)
+		{
+			stream.read(reinterpret_cast<char *>(buffer), PUMP_AMOUNT);
+			if (md6_update(&state, buffer, stream.gcount() * 8) != MD6_SUCCESS)
+			{
+				// It failed for some reason, but given proper programming, this should never happen, so it is ignored
+				// for now...
+			}
+			completed += stream.gcount();
+			// This ensures that "update(1000)" isn't called until complete is ready (IE the hash is truly
+			// done).
+			int permilliEst = std::min(int((double(completed) / double(fileSize)) * 1000.), 999);
+			if (permilliEst > lastReport)
+			{
+				lastReport = permilliEst;
+				promise.setProgressValue(permilliEst);
+			}
+
+			promise.suspendIfRequested();
+		}
+
+		if (!promise.isCanceled())
+		{
+			// The MD6 reference implementation provides a lowercase hex string of the state, so good times.
+			md6_final(&state, nullptr);
+			result = bit_cast<char *>(&*state.hexhashval);
+			return true;
+		}
+
+		return false;
+	}
+
+	int md6Size = 16;
+	md6_state state;
+};
+
 struct CryptoPPHasher : public Hasher
 {
 	CryptoPPHasher(Algo algo) :
@@ -124,9 +200,8 @@ struct CryptoPPHasher : public Hasher
 		}
 	}
 
-	std::unique_ptr<CryptoPP::HashTransformation> getTransform(Algo algo)
+	std::unique_ptr<C::HashTransformation> getTransform(Algo algo)
 	{
-		namespace C = CryptoPP;
 		using std::make_unique;
 		using enum Algo;
 
@@ -155,26 +230,24 @@ struct CryptoPPHasher : public Hasher
 		}
 	}
 
-	bool run(QPromise<QString> &promise, std::string &result, std::filesystem::path const &p) override
+	bool run(QPromise<QString> &promise, string &result, FS::path const &p) override
 	{
-		using namespace CryptoPP;
+		C::HashFilter filter(*tPtr, new C::HexEncoder(new C::StringSink(result), false));
 
-		HashFilter filter(*tPtr, new HexEncoder(new StringSink(result), false));
-		uintmax_t completed = 0, fileSize = std::filesystem::file_size(p);
-		size_t numSteps = fileSize / PUMP_AMOUNT;
 		int lastReport = 0;
-		if (fileSize % PUMP_AMOUNT)
-		{
-			++numSteps;
-		}
 
 		// This uses std::ifstream to avoid dependency on how Crypto++ opens files. This should work for all
-		// localities on all OS's.
-		std::ifstream stream(p, std::ios::binary);
-		FileSource src(stream, false, new Redirector(filter));
-		while (!promise.isCanceled() && numSteps--)
+		// localities on all OS's. Also, using char instead of std::byte or char8_t because Crypto++ requires this.
+		ifstream stream(p, std::ios::binary);
+		C::FileSource src(stream, false, new C::Redirector(filter));
+		for (uintmax_t completed = 0, fileSize = FS::file_size(p);
+		     !promise.isCanceled() && completed != fileSize;
+		     completed += src.Pump(PUMP_AMOUNT))
 		{
-			completed += src.Pump(PUMP_AMOUNT);
+			// All the documentation for Crypto++ says that the Pump method returns the number of bytes that remain to
+			// be processed, but this is a lie. It actually returns the number of bytes that were processed! Thus it is
+			// correct to simply do this.
+
 			// This ensures that "update(1000)" isn't called until complete is ready (IE the hash is truly
 			// done).
 			int permilliEst = std::min(int((double(completed) / double(fileSize)) * 1000.), 999);
@@ -196,7 +269,7 @@ struct CryptoPPHasher : public Hasher
 		return false;
 	}
 
-	std::unique_ptr<CryptoPP::HashTransformation> tPtr;
+	unique_ptr<C::HashTransformation> tPtr;
 };
 
 struct HashTask::Impl
@@ -219,39 +292,49 @@ struct HashTask::Impl
 		}
 	}
 
-	static std::unique_ptr<Hasher> makeHasher(Algo algo)
+	static unique_ptr<Hasher> makeHasher(Algo algo)
 	{
-		if (algo == Algo::MD5)
+		using enum Algo;
+
+		switch (algo)
 		{
-			return std::make_unique<MD5Hasher>();
+		case MD5:
+			return make_unique<MD5Hasher>();
+
+		case MD6_128:
+		case MD6_224:
+		case MD6_256:
+		case MD6_384:
+		case MD6_512:
+			return make_unique<MD6Hasher>(algo);
+
+		default:
+			if (isImplemented(algo))
+			{
+				return make_unique<CryptoPPHasher>(algo);
+			}
 		}
-		else if (isImplemented(algo))
-		{
-			return std::make_unique<CryptoPPHasher>(algo);
-		}
-		else
-		{
-			return {};
-		}
+
+		return {};
 	}
 
 	static void runHashNow(QPromise<QString> &promise, QString fName, Algo algorithm)
 	{
 		try
 		{
-			std::filesystem::path filePath(fName.toStdString());
+			FS::path filePath(fName.toStdString());
 			promise.setProgressRange(0, 1000);
-			if (!std::filesystem::exists(filePath))
+			if (!FS::exists(filePath))
 			{
 				promise.addResult(HashTask::tr("The file path provided does not exist."));
 			}
-			else if (!std::filesystem::is_regular_file(filePath))
+			else if (!FS::is_regular_file(filePath))
 			{
 				promise.addResult(HashTask::tr("The file provided is not a regular file."));
 			}
 			else if (auto hasher = makeHasher(algorithm))
 			{
-				std::string result;
+				string result;
 				if (hasher->run(promise, result, filePath))
 				{
 					promise.setProgressValue(1000);
@@ -260,7 +343,7 @@ struct HashTask::Impl
 			}
 			else
 			{
-				promise.addResult(HashTask::tr("Invalid Hash Function: ") + HashTask::tr(::algoName(algorithm)));
+				promise.addResult(HashTask::tr("Invalid Hash Function: ") + SFH::algoName(algorithm));
 			}
 		}
 		catch (...)
@@ -270,31 +353,31 @@ struct HashTask::Impl
 		}
 	}
 
-	static void outputCryptoPPWarning(QString fName, CryptoPP::FileSource::Err const &err, QString errType)
+	static void outputCryptoPPWarning(QString fName, C::FileSource::Err const &err, QString errType)
 	{
 		QDebug warn = qWarning();
 		warn << HashTask::tr("Received Crypto++ file %1 from attempt to read file: ").arg(errType) << fName << "\n";
 		switch (err.GetErrorType())
 		{
-		case CryptoPP::Exception::ErrorType::IO_ERROR:
+		case C::Exception::ErrorType::IO_ERROR:
 			warn << HashTask::tr("This is due to an underlying Input error.") << "\n";
 			break;
-		case CryptoPP::Exception::ErrorType::CANNOT_FLUSH:
+		case C::Exception::ErrorType::CANNOT_FLUSH:
 			warn << HashTask::tr("This is because a data buffer cannot be flushed correctly.") << "\n";
 			break;
-		case CryptoPP::Exception::ErrorType::DATA_INTEGRITY_CHECK_FAILED:
+		case C::Exception::ErrorType::DATA_INTEGRITY_CHECK_FAILED:
 			warn << HashTask::tr("There was a data integrity check that failed.") << "\n";
 			break;
-		case CryptoPP::Exception::ErrorType::INVALID_ARGUMENT:
+		case C::Exception::ErrorType::INVALID_ARGUMENT:
 			warn << HashTask::tr("This is because an argument provided was invalid.") << "\n";
 			break;
-		case CryptoPP::Exception::ErrorType::INVALID_DATA_FORMAT:
+		case C::Exception::ErrorType::INVALID_DATA_FORMAT:
 			warn << HashTask::tr("This is because the data was in an invalid format.") << "\n";
 			break;
-		case CryptoPP::Exception::ErrorType::NOT_IMPLEMENTED:
+		case C::Exception::ErrorType::NOT_IMPLEMENTED:
 			warn << HashTask::tr("This is reportedly because the functionality is not implemented.") << "\n";
 			break;
-		case CryptoPP::Exception::ErrorType::OTHER_ERROR:
+		case C::Exception::ErrorType::OTHER_ERROR:
 			warn << HashTask::tr("This is because of an unknown error within Crypto++.") << "\n";
 		}
 
@@ -303,19 +386,19 @@ struct HashTask::Impl
 
 	void start()
 	{
-		auto fileSourceErrHandler = [f = fName](CryptoPP::FileSource::Err err) {
+		auto fileSourceErrHandler = [f = fName](C::FileSource::Err err) {
 			outputCryptoPPWarning(f, err, tr("error"));
 			return HashTask::tr("Unknown error from Crypto++");
 		};
-		auto fileSourceReadErrHandler = [f = fName](CryptoPP::FileSource::ReadErr err) {
+		auto fileSourceReadErrHandler = [f = fName](C::FileSource::ReadErr err) {
 			outputCryptoPPWarning(f, err, tr("read error"));
 			return HashTask::tr("Could not read the provided file");
 		};
-		auto fileSourceOpenErrHandler = [f = fName](CryptoPP::FileSource::OpenErr err) {
+		auto fileSourceOpenErrHandler = [f = fName](C::FileSource::OpenErr err) {
 			outputCryptoPPWarning(f, err, tr("open error"));
 			return HashTask::tr("Failed to open the file provided");
 		};
-		auto filesystemErrHandler = [f = fName](std::filesystem::filesystem_error err) {
+		auto filesystemErrHandler = [f = fName](FS::filesystem_error err) {
 			qWarning() << HashTask::tr("There was an error in the filesystem while accessing this file: ") << f << "\n"
 			           << HashTask::tr("The reported error is: ") << err.code().value() << err.code().message() << "\n"
 			           << err.what();
@@ -365,7 +448,7 @@ struct HashTask::Impl
 
 HashTask::HashTask(QString const &filepath, Algo algo, size_t index, bool startNow, QObject *parent) :
     QObject(parent),
-    im(std::make_unique<HashTask::Impl>(this, filepath, algo, index, startNow))
+    im(make_unique<HashTask::Impl>(this, filepath, algo, index, startNow))
 {
 	// No implementation.
 }
@@ -405,7 +488,7 @@ Algo HashTask::hashAlgo() const
 
 QString HashTask::algoName() const
 {
-	return tr(::algoName(im->algorithm));
+	return SFH::algoName(im->algorithm);
 }
 
 bool HashTask::isComplete() const
@@ -456,6 +539,7 @@ void HashTask::cancel()
 		// This is set immediately, even though the onCanceled() handler does the same.
 		im->hashStr = tr("Canceled!");
 		emit canceled();
+		emit dataChanged(im->ind);
 	}
 }
 
@@ -490,4 +574,6 @@ void HashTask::suspendOff()
 void HashTask::runHashNow(QPromise<QString> &promise, QString fName, Algo algorithm)
 {
 	Impl::runHashNow(promise, fName, algorithm);
+}
+
 }

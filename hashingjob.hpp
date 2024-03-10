@@ -23,9 +23,11 @@
 #include <QObject>
 #include <QString>
 
-#include <memory>
-
+#include "sfhbase.hpp"
 #include "hashalgo.hpp"
+
+namespace KirHut::SFH
+{
 
 class HashTask;
 
@@ -65,6 +67,8 @@ private slots:
 
 private:
 	struct Impl;
-	std::unique_ptr<Impl> im;
+	unique_ptr<Impl> im;
 };
+
+}
 

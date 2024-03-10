@@ -22,7 +22,10 @@
 
 #include <QAbstractTableModel>
 
-#include <memory>
+#include "sfhbase.hpp"
+
+namespace KirHut::SFH
+{
 
 class HashingJob;
 
@@ -37,7 +40,7 @@ public:
 	explicit HashTasksModel(QObject *parent = nullptr);
 	~HashTasksModel();
 
-	void setHashingJob(std::unique_ptr<HashingJob> &&job);
+	void setHashingJob(unique_ptr<HashingJob> &&job);
 	HashingJob *getHashingJob() const;
 
 	int rowCount(QModelIndex const &parent = QModelIndex()) const override;
@@ -50,6 +53,7 @@ private slots:
 
 private:
 	struct Impl;
-	std::unique_ptr<Impl> im;
+	unique_ptr<Impl> im;
 };
 
+}

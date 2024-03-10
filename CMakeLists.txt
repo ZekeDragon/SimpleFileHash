@@ -42,11 +42,18 @@ set(REQUIRED_INCLUDES
 
 set(TS_FILES
     SimpleFileHash_en.ts
+    SimpleFileHash_es.ts
+    SimpleFileHash_fr.ts
+    SimpleFileHash_pl.ts
+    SimpleFileHash_ko.ts
+    SimpleFileHash_sv.ts
 )
 
 set(TRANSLATE_SOURCES
     main.cpp
+    sfhbase.hpp
     hashalgo.hpp
+    hashalgo.cpp
     filehashapplication.hpp
     filehashapplication.cpp
     hashtask.hpp
@@ -67,6 +74,9 @@ set(TRANSLATE_SOURCES
     usersettings.cpp
     md5hash.hpp
     md5hash.cpp
+    md6/md6.hpp
+    md6/md6_compress.cpp
+    md6/md6_mode.cpp
     mainwindow.cpp
     mainwindow.hpp
     mainwindow.ui

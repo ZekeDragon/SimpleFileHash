@@ -1,6 +1,6 @@
 /***********************************************************************************************************************
 ** The Simple Qt File Hashing Application
-** mainwindow.hpp
+** sfhbase.hpp
 ** Copyright (C) 2024 Ezekiel Oruven
 **
 ** This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
@@ -20,37 +20,14 @@
 ***********************************************************************************************************************/
 #pragma once
 
-#include <QMainWindow>
-
-#include "sfhbase.hpp"
+#include <memory>
+#include <array>
 
 namespace KirHut::SFH
 {
 
-class MainWindow : public QMainWindow
-{
-	Q_OBJECT
-
-public:
-	MainWindow(const QStringList &startingFiles = {}, QWidget *parent = nullptr);
-	~MainWindow();
-
-public slots:
-	void startCancelButton();
-	void openFiles();
-	void openDirectory();
-	void newHashAlgorithm();
-
-	void openMatchFile();
-	void jobFinished();
-	void jobCanceled();
-
-protected:
-	void closeEvent(QCloseEvent *event) override;
-
-private:
-	struct Impl;
-	unique_ptr<Impl> im;
-};
+using std::unique_ptr;
+using std::make_unique;
+using std::array;
 
 }

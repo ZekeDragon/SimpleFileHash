@@ -24,6 +24,9 @@
 #include <array>
 #include <vector>
 
+namespace KirHut
+{
+
 /*!
  * The number of bits in a byte.
  *
@@ -269,3 +272,4 @@ void getMd5(size_t length, std::byte const *data, std::byte *output) noexcept;
  */
 Md5Sum getMd5(size_t length, std::byte const *data) noexcept;
 
+}
