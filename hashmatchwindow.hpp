@@ -37,6 +37,9 @@ public:
 
 	void setHashSumFile(QString filename);
 
+public slots:
+	void retranslate();
+
 protected:
 	void closeEvent(QCloseEvent *event) override;
 

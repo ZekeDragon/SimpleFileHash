@@ -1,6 +1,6 @@
 /***********************************************************************************************************************
 ** The Simple Qt File Hashing Application
-** mainwindow.hpp
+** contextinstall.hpp
 ** Copyright (C) 2024 Ezekiel Oruven
 **
 ** This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
@@ -20,45 +20,18 @@
 ***********************************************************************************************************************/
 #pragma once
 
-#include <QMainWindow>
-
-#include "sfhbase.hpp"
+#include "hashalgo.hpp"
 
 namespace KirHut::SFH
 {
 
-class MainWindow : public QMainWindow
+class ContextInstall
 {
-	Q_OBJECT
-
 public:
-	MainWindow(const QStringList &startingFiles = {}, QWidget *parent = nullptr);
-    ~MainWindow();
+    ContextInstall();
 
-signals:
-	void localeChange();
-
-public slots:
-	void startCancelButton();
-	void openFiles();
-	void openDirectory();
-	void newHashAlgorithm();
-
-	void openMatchFile();
-	void jobFinished();
-	void jobCanceled();
-
-    void retranslate();
-
-protected:
-	void closeEvent(QCloseEvent *event) override;
-	void changeEvent(QEvent *event) override;
-    void dragEnterEvent(QDragEnterEvent *event) override;
-    void dropEvent(QDropEvent *event) override;
-
-private:
-	struct Impl;
-	unique_ptr<Impl> im;
+    void installContextMenuHandler(Algo algo);
+    void uninstallContextMenuHandler(Algo algo);
 };
 
 }

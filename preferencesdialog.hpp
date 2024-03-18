@@ -36,8 +36,26 @@ public:
 	explicit PreferencesDialog(const std::vector<Algo> &algos, QWidget *parent = nullptr);
 	~PreferencesDialog();
 
+public slots:
+	void localeChanged(int index);
+	void defaultAlgoChanged(int index);
+	void overrideTheme(bool shouldOverride);
+	void navigateSubdirs(bool shouldNavigate);
+	void darkThemeSet(bool toggled);
+	void lightThemeSet(bool toggled);
+
+	void retranslate();
+
 protected:
 	void closeEvent(QCloseEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+
+private slots:
+	void singleFileToggle(KirHut::SFH::Algo algo, bool checked);
+	void installContextToggle(KirHut::SFH::Algo algo, bool checked);
+
+    void acceptChanges();
+    void rejectChanges();
 
 private:
 	struct Impl;

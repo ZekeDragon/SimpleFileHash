@@ -22,62 +22,123 @@
 #include "ui_preferencesdialog.h"
 
 #include "filehashapplication.hpp"
+#include "algocheckbox.hpp"
 
 namespace KirHut::SFH
 {
 using std::vector;
 using std::pair;
 
-struct PreferencesDialog::Impl
+struct PreferencesDialog::Impl : public Ui::PreferencesDialog
 {
-	Impl(vector<Algo> const &algos, PreferencesDialog *top) :
+    Impl(vector<Algo> const &algos, SFH::PreferencesDialog *top) :
 	    top(top),
 	    settings(FileHashApplication::fileApp()->settings()),
 	    algos(algos)
 	{
-		ui.setupUi(top);
-
-		for (auto &[loc, dName] : displayNames)
-		{
-			ui.languageBox->addItem(dName);
-		}
-
-		if (QByteArray geometry = settings.prefDialogGeometry(); !geometry.isEmpty())
-		{
-			top->restoreGeometry(geometry);
-		}
-
-		if (QString locale = settings.userLocale(); !locale.isEmpty())
-		{
-			ui.languageBox->setCurrentIndex(localeIndexPos(locale));
-		}
-		else
-		{
-			ui.languageBox->setCurrentIndex(localeIndexPos(FileHashApplication::fileApp()->locale()));
-		}
-
-		initAlgorithms(settings.userDefaultAlgorithm());
+        setupUi(top);
 	}
 
-	void initAlgorithms(Algo def)
+    void init()
+    {
+        for (auto &[loc, dName] : displayNames)
+        {
+            languageBox->addItem(dName);
+        }
+
+        if (QString locale = settings.userLocale(); !locale.isEmpty())
+        {
+            languageBox->setCurrentIndex(localeIndexPos(locale));
+        }
+        else
+        {
+            languageBox->setCurrentIndex(localeIndexPos(FileHashApplication::fileApp()->locale()));
+        }
+
+        populatingLangLists = false;
+        // This connection is made here and not in the .ui file because the constructor dynamically adds entries
+        // to the languageBox. If the .ui file makes the connection, this will cause the localeChanged() slot to be
+        // called when we are just creating the languageBox, resulting in UB.
+        QObject::connect(languageBox, SIGNAL(currentIndexChanged(int)), top, SLOT(localeChanged(int)));
+        initAlgorithms();
+    }
+
+    void initAlgorithms()
 	{
-		ui.defaultAlgorithmBox->clear();
+        populatingAlgoLists = true;
+        defaultAlgorithmBox->clear();
 		int index = -1;
+        Algo def = settings.userDefaultAlgorithm();
+		QList<Algo> disabled = settings.disabledSingleFileAlgos(),
+		            installed = settings.contextMenuAlgos();
+
+        for (QObject *obj : singleFileChecksArea->children())
+        {
+            if (AlgoCheckBox *cBox = dynamic_cast<AlgoCheckBox *>(obj))
+            {
+                singleFileAreaLayout->removeWidget(cBox);
+                cBox->deleteLater();
+            }
+        }
+
+        for (QObject *obj : installContextCheckArea->children())
+        {
+            if (AlgoCheckBox *cBox = dynamic_cast<AlgoCheckBox *>(obj))
+            {
+                installContextLayout->removeWidget(cBox);
+                cBox->deleteLater();
+            }
+        }
+
 		for (size_t loc = 0; loc < algos.size(); ++loc)
 		{
 			Algo algo = algos[loc];
-			ui.defaultAlgorithmBox->addItem(algoName(algos[loc]));
+            defaultAlgorithmBox->addItem(algoName(algo));
 			if (def == algo)
 			{
 				index = int(loc);
 			}
+
+            AlgoCheckBox *disabledCheck = new AlgoCheckBox(algo, singleFileChecksArea);
+            singleFileAreaLayout->addWidget(disabledCheck);
+			if (!disabled.contains(algo))
+			{
+				disabledCheck->setChecked(true);
+			}
+
+			QObject::connect(disabledCheck, SIGNAL(algoToggled(KirHut::SFH::Algo,bool)),
+			                 top,        SLOT(singleFileToggle(KirHut::SFH::Algo,bool)));
+
+            AlgoCheckBox *contextCheck = new AlgoCheckBox(algo, installContextCheckArea);
+			installContextLayout->addWidget(contextCheck);
+			if (installed.contains(algo))
+			{
+				contextCheck->setChecked(true);
+			}
+
+			QObject::connect(contextCheck, SIGNAL(algoToggled(KirHut::SFH::Algo,bool)),
+                             top,   SLOT(installContextToggle(KirHut::SFH::Algo,bool)));
 		}
 
 		if (index > -1)
 		{
-			ui.defaultAlgorithmBox->setCurrentIndex(index);
+            defaultAlgorithmBox->setCurrentIndex(index);
 		}
+
+        populatingAlgoLists = false;
 	}
+
+    void updateWidgets()
+    {
+        enterSubdirectoriesCheck->setChecked(settings.navigateSubdirectories());
+        overrideThemeCheck->setChecked(settings.theme() != UserSettings::System);
+        if (settings.theme() == UserSettings::Light)
+        {
+            lightModeButton->setChecked(true);
+        }
+
+        numFilesEdit->setText(QString::number(settings.maxFilesToHash()));
+    }
 
 	int localeIndexPos(QString const &locale)
 	{
@@ -105,14 +166,22 @@ struct PreferencesDialog::Impl
 		return {};
 	}
 
-	PreferencesDialog *top;
+	void retranslate()
+	{
+        retranslateUi(top);
+		displayNames[0].second = tr("System Default");
+        initAlgorithms();
+	}
+
+    SFH::PreferencesDialog *top;
 	UserSettings &settings;
-	vector<Algo> const &algos;
-	Ui::PreferencesDialog ui;
+    vector<Algo> const &algos;
+    bool populatingAlgoLists = false, populatingLangLists = true;
 
 	// Notably, we do NOT TRANSLATE these display strings! They are meant to be in their target languages on all
 	// user systems so that a speaker of that language can recognize the language it is referring to.
 	vector<pair<QString, QString>> displayNames {
+		{ "XX", tr("System Default") },
 		{ "en", u8"English" },
 		{ "fr", u8"français" },
 		{ "es", u8"español" },
@@ -126,7 +195,7 @@ PreferencesDialog::PreferencesDialog(vector<Algo> const &algos, QWidget *parent)
     QDialog(parent),
     im(make_unique<PreferencesDialog::Impl>(algos, this))
 {
-	// No implementation.
+    im->init();
 }
 
 PreferencesDialog::~PreferencesDialog()
@@ -134,10 +203,112 @@ PreferencesDialog::~PreferencesDialog()
 	// No implementation.
 }
 
+void PreferencesDialog::retranslate()
+{
+	im->retranslate();
+}
+
+void PreferencesDialog::localeChanged(int index)
+{
+    if (!im->populatingLangLists && index >= 0 && index < int(im->displayNames.size()))
+    {
+        im->settings.setUserLocale(im->displayNames[index].first);
+    }
+}
+
+void PreferencesDialog::defaultAlgoChanged(int index)
+{
+    if (!im->populatingAlgoLists && index >= 0 && index < int(im->algos.size()))
+    {
+        im->settings.setUserDefaultAlgorithm(im->algos.at(index));
+    }
+}
+
+void PreferencesDialog::overrideTheme(bool shouldOverride)
+{
+    if (shouldOverride)
+    {
+        im->darkModeButton->setEnabled(true);
+        im->lightModeButton->setEnabled(true);
+        im->settings.setTheme(im->darkModeButton->isChecked() ? UserSettings::Dark : UserSettings::Light);
+    }
+    else
+    {
+        im->darkModeButton->setEnabled(false);
+        im->lightModeButton->setEnabled(false);
+        im->settings.setTheme(UserSettings::System);
+    }
+}
+
+void PreferencesDialog::navigateSubdirs(bool shouldNavigate)
+{
+    im->settings.setSubdirectoryNavigate(shouldNavigate);
+}
+
+void PreferencesDialog::darkThemeSet(bool toggled)
+{
+    if (toggled)
+    {
+        overrideTheme(true);
+    }
+}
+
+void PreferencesDialog::lightThemeSet(bool toggled)
+{
+    if (toggled)
+    {
+        overrideTheme(true);
+    }
+}
+
 void PreferencesDialog::closeEvent(QCloseEvent *event)
 {
-	FileHashApplication::fileApp()->settings().setPrefDialogGeometry(saveGeometry());
-	QDialog::closeEvent(event);
+    im->settings.setPrefDialogGeometry(saveGeometry());
+    QDialog::closeEvent(event);
+}
+
+void PreferencesDialog::showEvent(QShowEvent *event)
+{
+    if (QByteArray geometry = im->settings.prefDialogGeometry(); !geometry.isEmpty())
+    {
+        restoreGeometry(geometry);
+    }
+
+    im->updateWidgets();
+}
+
+void PreferencesDialog::singleFileToggle(Algo algo, bool checked)
+{
+	if (checked)
+	{
+		im->settings.enableSingleFileAlgo(algo);
+	}
+	else
+	{
+		im->settings.disableSingleFileAlgo(algo);
+	}
+}
+
+void PreferencesDialog::installContextToggle(Algo algo, bool checked)
+{
+	if (checked)
+	{
+		im->settings.addContextMenuAlgo(algo);
+	}
+	else
+	{
+		im->settings.removeContextMenuAlgo(algo);
+    }
+}
+
+void PreferencesDialog::acceptChanges()
+{
+    im->settings.commitSettingsChanges();
+}
+
+void PreferencesDialog::rejectChanges()
+{
+    im->settings.discardSettingsChanges();
 }
 
 }

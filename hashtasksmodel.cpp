@@ -26,6 +26,7 @@
 #include <QApplication>
 #include <QFont>
 #include <QBrush>
+#include <QVariant>
 
 using namespace KirHut::SFH;
 
@@ -175,7 +176,7 @@ QVariant HashTasksModel::data(QModelIndex const &index, int role) const
 		}
 	}
 
-	return QVariant();
+    return QVariant();
 }
 
 QVariant HashTasksModel::headerData(int section, Qt::Orientation orientation, int role) const
@@ -187,7 +188,7 @@ QVariant HashTasksModel::headerData(int section, Qt::Orientation orientation, in
 			return array{ "Name of File", "Algorithm", "Hash Function Result" }[section];
 		}
 
-		return QVariant();
+        return QVariant();
 	}
 
 	return QAbstractTableModel::headerData(section, orientation, role);

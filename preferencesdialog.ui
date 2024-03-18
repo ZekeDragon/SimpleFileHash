@@ -6,100 +6,205 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>407</width>
+    <height>246</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>User Preferences</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="preferencesLayout">
    <item>
-    <widget class="QCheckBox" name="enterSubdirectoriesCheck">
-     <property name="text">
-      <string>Go Through Subdirectories When Hashing a Directory.</string>
+    <widget class="QTabWidget" name="optionSetTabs">
+     <property name="currentIndex">
+      <number>0</number>
      </property>
-    </widget>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <widget class="QCheckBox" name="overrideThemeCheck">
-       <property name="text">
-        <string>Override System Theme:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QRadioButton" name="lightModeButton">
-       <property name="text">
-        <string>Light Mode</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QRadioButton" name="darkModeButton">
-       <property name="text">
-        <string>Dark Mode</string>
-       </property>
-       <property name="checked">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <widget class="QCheckBox" name="contextMenuCheck">
-     <property name="text">
-      <string>Enable Right-Click Context Menu Options:</string>
+     <property name="usesScrollButtons">
+      <bool>false</bool>
      </property>
+     <widget class="QWidget" name="basicOptionsTab">
+      <attribute name="title">
+       <string>Basic Options</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <widget class="QCheckBox" name="enterSubdirectoriesCheck">
+         <property name="text">
+          <string>Go Through Subdirectories When Hashing a Directory.</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QCheckBox" name="overrideThemeCheck">
+           <property name="text">
+            <string>Override System Theme:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="lightModeButton">
+           <property name="text">
+            <string>Light Mode</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="darkModeButton">
+           <property name="text">
+            <string>Dark Mode</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <property name="spacing">
+          <number>15</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="fileNumberLimitLabel">
+           <property name="text">
+            <string>Set Limit on Number of FIles:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="numFilesEdit">
+           <property name="maxLength">
+            <number>256</number>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QLabel" name="defaultAlgorithmLabel">
+           <property name="text">
+            <string>Default Algorithm:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="defaultAlgorithmBox">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QLabel" name="languageLabel">
+           <property name="text">
+            <string>Select Language:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="languageBox">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="contextMenuInstallTab">
+      <attribute name="title">
+       <string>Install Context Menu Options</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_3">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QScrollArea" name="scrollArea_2">
+         <property name="widgetResizable">
+          <bool>true</bool>
+         </property>
+         <widget class="QWidget" name="installContextCheckArea">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>383</width>
+            <height>166</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="installContextLayout"/>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="singleFileOptionsTab">
+      <attribute name="title">
+       <string>Single File Algos</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_4">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QScrollArea" name="scrollArea">
+         <property name="verticalScrollBarPolicy">
+          <enum>Qt::ScrollBarAlwaysOff</enum>
+         </property>
+         <property name="widgetResizable">
+          <bool>true</bool>
+         </property>
+         <widget class="QWidget" name="singleFileChecksArea">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>383</width>
+            <height>166</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="singleFileAreaLayout"/>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </widget>
-   </item>
-   <item>
-    <widget class="QListWidget" name="contextMenuAlgorithms"/>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
-     <item>
-      <widget class="QLabel" name="defaultAlgorithmLabel">
-       <property name="text">
-        <string>Default Algorithm:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QComboBox" name="defaultAlgorithmBox">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_3">
-     <item>
-      <widget class="QLabel" name="languageLabel">
-       <property name="text">
-        <string>Select Language:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QComboBox" name="languageBox">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-      </widget>
-     </item>
-    </layout>
    </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
@@ -113,6 +218,17 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>optionSetTabs</tabstop>
+  <tabstop>enterSubdirectoriesCheck</tabstop>
+  <tabstop>overrideThemeCheck</tabstop>
+  <tabstop>lightModeButton</tabstop>
+  <tabstop>darkModeButton</tabstop>
+  <tabstop>defaultAlgorithmBox</tabstop>
+  <tabstop>languageBox</tabstop>
+  <tabstop>scrollArea_2</tabstop>
+  <tabstop>scrollArea</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
@@ -122,12 +238,12 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
+     <x>266</x>
+     <y>236</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
-     <y>274</y>
+     <y>245</y>
     </hint>
    </hints>
   </connection>
@@ -138,14 +254,152 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
+     <x>334</x>
+     <y>236</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
-     <y>274</y>
+     <y>245</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>enterSubdirectoriesCheck</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>PreferencesDialog</receiver>
+   <slot>navigateSubdirs(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>217</x>
+     <y>60</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>186</x>
+     <y>101</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>overrideThemeCheck</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>PreferencesDialog</receiver>
+   <slot>overrideTheme(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>118</x>
+     <y>86</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>193</x>
+     <y>138</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lightModeButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>PreferencesDialog</receiver>
+   <slot>lightThemeSet(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>228</x>
+     <y>86</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>239</x>
+     <y>105</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>darkModeButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>PreferencesDialog</receiver>
+   <slot>darkThemeSet(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>336</x>
+     <y>84</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>295</x>
+     <y>106</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>defaultAlgorithmBox</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>PreferencesDialog</receiver>
+   <slot>defaultAlgoChanged(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>385</x>
+     <y>162</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>224</x>
+     <y>133</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>PreferencesDialog</sender>
+   <signal>accepted()</signal>
+   <receiver>PreferencesDialog</receiver>
+   <slot>acceptChanges()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>203</x>
+     <y>122</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>203</x>
+     <y>122</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>PreferencesDialog</sender>
+   <signal>rejected()</signal>
+   <receiver>PreferencesDialog</receiver>
+   <slot>rejectChanges()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>203</x>
+     <y>122</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>203</x>
+     <y>122</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>languageBox</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>PreferencesDialog</receiver>
+   <slot>localeChanged(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>305</x>
+     <y>182</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>275</x>
+     <y>120</y>
     </hint>
    </hints>
   </connection>
  </connections>
+ <slots>
+  <slot>localeChanged(int)</slot>
+  <slot>overrideTheme(bool)</slot>
+  <slot>navigateSubdirs(bool)</slot>
+  <slot>darkThemeSet(bool)</slot>
+  <slot>lightThemeSet(bool)</slot>
+  <slot>defaultAlgoChanged(int)</slot>
+  <slot>acceptChanges()</slot>
+  <slot>rejectChanges()</slot>
+ </slots>
 </ui>

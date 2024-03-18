@@ -21,21 +21,63 @@
 
 #include "hashtask.hpp"
 #include "hashingjob.hpp"
+#include "filehashapplication.hpp"
 
 #include <QObject>
 #include <QTest>
 #include <QEventLoop>
 #include <QThreadPool>
 #include <QSignalSpy>
+#include <QTranslator>
 
 #include <vector>
 #include <array>
 
+namespace KirHut::SFH
+{
+void overrideHashImpl(FileHashApplication *app);
+}
+
 using namespace KirHut::SFH;
 
-class TestHashingJob : public QObject
+class TestHashingJob : public QObject, public FileHashApplication
 {
 	Q_OBJECT
+
+    unique_ptr<UserSettings> sets;
+
+public:
+    TestHashingJob()
+    {
+        overrideHashImpl(this);
+    }
+
+    UserSettings &settings() override
+    {
+        if (!sets)
+        {
+            sets = UserSettings::make(organizationName(), applicationName());
+        }
+
+        return *sets;
+    }
+
+    QTranslator &translator() override
+    {
+        static QTranslator translator;
+        return translator;
+    }
+
+    QString const &locale() override
+    {
+        static QString str;
+        return str;
+    }
+
+    int exec() override
+    {
+        return 0;
+    }
 
 signals:
 	void cancelDetect();
@@ -52,11 +94,11 @@ private slots:
 
 void TestHashingJob::testSingleFile()
 {
-	HashingJob job(QStringList{ "../tfolder/TestBlock1.txt" }, Algo::SHA2_256);
+    HashingJob job(QStringList{ "../tfolder/TestBlock1.txt" }, true);
 
 	QVERIFY(job.directories().empty());
 	QVERIFY(!job.filePaths().empty());
-	QCOMPARE(job.numTasks(), 1);
+	QCOMPARE(job.numTasks(), std::distance(algosBegin(), algosEnd()));
 	QString absName = std::filesystem::absolute(std::filesystem::path("../tfolder/TestBlock1.txt")).u8string().c_str();
 	QCOMPARE(job.filePaths().at(0), absName);
 
@@ -71,12 +113,12 @@ void TestHashingJob::testSingleFile()
 	QVERIFY(completeSpy.wait(3000));
 	QVERIFY(!taskCompleteSpy.empty());
 	QCOMPARE(taskCompleteSpy.at(0).at(0).toULongLong(), 1);
-	QCOMPARE(job.tasksDone(), 1);
+	QCOMPARE(job.tasksDone(), std::distance(algosBegin(), algosEnd()));
 	QVERIFY(!permilliSpy.empty());
 	QCOMPARE(job.permilliComplete(), 1000);
 
 	QVERIFY(job.taskAt(0) != nullptr);
-	QCOMPARE(job.taskAt(0)->hash(), "90178e96e1bca942f71dd9434fea7bebb5766f298d6a894621c14975122c4f12");
+	QCOMPARE(job.taskAt(0)->hash(), "f7827f208e4d6b9a06da0bd018cc7dff");
 }
 
 void TestHashingJob::testMultiFile()

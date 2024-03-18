@@ -21,11 +21,12 @@
 #include "hashingjob.hpp"
 
 #include "hashtask.hpp"
+#include "filehashapplication.hpp"
 
 #include <filesystem>
 #include <system_error>
 
-#include <QDebug>
+#include <QtDebug>
 
 namespace KirHut::SFH
 {
@@ -36,32 +37,34 @@ namespace FS = std::filesystem;
 
 struct HashingJob::Impl
 {
-	Impl(HashingJob *top, QStringList const &paths, Algo algo) :
+    Impl(HashingJob *top, QStringList const &paths, Algo algo, bool useAll) :
 	    top(top),
+        settings(FileHashApplication::fileApp()->settings()),
 	    algo(algo)
 	{
 		if (algo == Algo::None)
 		{
-			throw runtime_error("\"None\" was passed as the algorithm to a HashingJob, which is invalid.");
+            this->algo = settings.userDefaultAlgorithm();
 		}
 
 		FS::path stdPath;
 
 		for (QString const &path : paths)
-		{
+        {
 			stdPath = path.toStdString();
 			error_code checker;
 			if (stdPath = FS::absolute(stdPath, checker); checker)
 			{
 				// If we can't derive an absolute path from a relative path, just skip it.
 				// TODO: Implement user notification (for example with the status bar or a log of some kind).
+                qDebug() << "Failed to derive absolute path: " << path;
 				continue;
 			}
 
 			if (FS::exists(stdPath, checker) && !checker)
-			{
+            {
 				if (FS::is_directory(stdPath))
-				{
+                {
 					addDirectory(stdPath);
 				}
 				else
@@ -71,9 +74,9 @@ struct HashingJob::Impl
 			}
 		}
 
-		if (taskQueue.size() == 1)
+		if (taskQueue.size() == 1 && algo == Algo::None)
 		{
-			initSingleFile(stdPath);
+            initSingleFile(stdPath, useAll);
 		}
 	}
 
@@ -92,7 +95,7 @@ struct HashingJob::Impl
 			{
 				// TODO: Do something.
 			}
-			else if (checkSubdirectories && it->is_directory())
+            else if (settings.navigateSubdirectories() && it->is_directory())
 			{
 				addDirectory(it->path());
 			}
@@ -105,21 +108,18 @@ struct HashingJob::Impl
 		files << taskQueue.back()->filepath();
 	}
 
-	void initSingleFile(FS::path const &path)
+    void initSingleFile(FS::path const &path, bool useAll)
 	{
-		HashTask *saved = taskQueue.front();
+		delete taskQueue.front();
 		taskQueue.clear();
+        QList<Algo> disabled = settings.disabledSingleFileAlgos();
 
 		for (Algo const *a = algosBegin(); a != algosEnd(); ++a)
 		{
-			if (*a == saved->hashAlgo())
-			{
-				taskQueue.push_back(saved);
-			}
-			else
-			{
-				pushTask(path, *a);
-			}
+            if (useAll || !disabled.contains(*a))
+            {
+                pushTask(path, *a);
+            }
 		}
 	}
 
@@ -135,7 +135,8 @@ struct HashingJob::Impl
 
 	HashingJob *top;
 	qsizetype tasksDone = 0, completed = 0;
-	bool checkSubdirectories = false, canceled = false;;
+    UserSettings &settings;
+    bool canceled = false;
 	Algo algo;
 	QStringList files, directories;
 	// You can't use emplace_back and keep HashTask local because QObject deletes the move constructor...
@@ -144,9 +145,27 @@ struct HashingJob::Impl
 
 HashingJob::HashingJob(QStringList const &paths, Algo algo, QObject *parent) :
     QObject(parent),
-    im(make_unique<HashingJob::Impl>(this, paths, algo))
+    im(make_unique<HashingJob::Impl>(this, paths, algo, false))
 {
-	// No implementation.
+    // No implementation.
+}
+
+// All of this to eliminate a messy ternary!
+Algo getAlgo(bool useAllAlgos)
+{
+    if (useAllAlgos)
+    {
+        return Algo::None;
+    }
+
+    return FileHashApplication::fileApp()->settings().userDefaultAlgorithm();
+}
+
+HashingJob::HashingJob(const QStringList &paths, bool useAllAlgos, QObject *parent) :
+    QObject(parent),
+    im(make_unique<HashingJob::Impl>(this, paths, SFH::getAlgo(useAllAlgos), useAllAlgos))
+{
+    // No implementation.
 }
 
 HashingJob::HashingJob(HashingJob const &other, Algo algo) :
@@ -156,7 +175,7 @@ HashingJob::HashingJob(HashingJob const &other, Algo algo) :
 }
 
 HashingJob::HashingJob(HashingJob const &other, Algo algo, QObject *parent) :
-    HashingJob(other.filePaths(), algo == Algo::None ? other.getAlgo() : algo, parent)
+    HashingJob(other.filePaths(), algo == Algo::None && other.filePaths().size() > 1 ? other.getAlgo() : algo, parent)
 {
 	im->directories = other.directories();
 }
@@ -194,7 +213,7 @@ size_t HashingJob::tasksDone() const
 
 int HashingJob::permilliComplete() const
 {
-	return im->files.size() ? static_cast<int>(im->completed / im->files.size()) : 1000;
+	return im->taskQueue.size() ? static_cast<int>(im->completed / im->taskQueue.size()) : 1000;
 }
 
 HashTask *HashingJob::taskAt(size_t pos) const
@@ -222,7 +241,7 @@ void HashingJob::taskFinished()
 	if (!im->canceled)
 	{
 		emit tasksDoneUpdate(++im->tasksDone);
-		if (im->tasksDone == im->files.size())
+		if (im->tasksDone == qsizetype(im->taskQueue.size()))
 		{
 			emit jobComplete();
 		}

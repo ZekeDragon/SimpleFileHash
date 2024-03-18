@@ -22,15 +22,57 @@
 #include "hashtasksmodel.hpp"
 #include "hashtask.hpp"
 #include "hashingjob.hpp"
+#include "filehashapplication.hpp"
 
 #include <QObject>
 #include <QTest>
+#include <QTranslator>
+
+namespace KirHut::SFH
+{
+void overrideHashImpl(FileHashApplication *app);
+}
 
 using namespace KirHut::SFH;
 
-class TestHashTasksModel : public QObject
+class TestHashTasksModel : public QObject, public FileHashApplication
 {
 	Q_OBJECT
+
+    unique_ptr<UserSettings> sets;
+
+public:
+    TestHashTasksModel()
+    {
+        overrideHashImpl(this);
+    }
+
+    UserSettings &settings() override
+    {
+        if (!sets)
+        {
+            sets = UserSettings::make(organizationName(), applicationName());
+        }
+
+        return *sets;
+    }
+
+    QTranslator &translator() override
+    {
+        static QTranslator translator;
+        return translator;
+    }
+
+    QString const &locale() override
+    {
+        static QString str;
+        return str;
+    }
+
+    int exec() override
+    {
+        return 0;
+    }
 
 private slots:
 	void headerData();

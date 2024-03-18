@@ -20,177 +20,447 @@
 ***********************************************************************************************************************/
 #include "usersettings.hpp"
 
-#include <QSettings>
+#include "filehashapplication.hpp"
+#include "contextinstall.hpp"
 
-using namespace KirHut::SFH;
+#include <QSettings>
+#include <QTranslator>
+
+namespace KirHut::SFH
+{
 
 struct UserSettingsImpl : public UserSettings
 {
-	UserSettingsImpl(QString const &orgName, QString const &appName) :
-	    sets(orgName, appName)
+    UserSettingsImpl(QString const &orgName, QString const &appName, SettingsListener *listener) :
+        org(orgName),
+        app(appName),
+        listener(listener)
 	{
 		init();
 	}
-	UserSettingsImpl()
+    UserSettingsImpl(SettingsListener *listener) :
+        listener(listener)
 	{
 		init();
 	}
 
+    ~UserSettingsImpl()
+    {
+        commitGeometries();
+    }
+
 	QByteArray mainWindowGeometry() const override
 	{
-		return getBytes("mainwindow/geometry");
+        return geometries[0];
 	}
 
 	QByteArray prefDialogGeometry() const override
 	{
-		return getBytes("prefdialog/geometry");
+        return geometries[1];
 	}
 
 	QByteArray hashWindowGeometry() const override
 	{
-		return getBytes("hashmatch/geometry");
+        return geometries[2];
 	}
 
 	QByteArray hashWindowSplitterState() const override
 	{
-		return getBytes("hashmatch/splitter");
+        return geometries[3];
 	}
 
 	QString userLocale() const override
 	{
-		return sets.value("locale", {}).toString();
+        return localeStr;
 	}
 
 	Algo userDefaultAlgorithm() const override
 	{
-		return Algo(sets.value("defaultalgo", int(Algo::SHA2_256)).toInt());
+        return defaultAlgo;
 	}
 
 	Theme theme() const override
 	{
-		if (sets.contains("darkmode"))
-		{
-			return sets.value("darkmode").toBool() ? Dark : Light;
-		}
-
-		return System;
+        return currentTheme;
 	}
 
 	bool navigateSubdirectories() const override
 	{
-		return sets.value("entersubdirs").toBool();
+        return navigateSubs;
+	}
+
+	QList<Algo> const &disabledSingleFileAlgos() const override
+	{
+		return disabledFileAlgos;
 	}
 
 	QList<Algo> const &contextMenuAlgos() const override
 	{
-		return algos;
+		return contextAlgos;
 	}
+
+    size_t maxFilesToHash() const override
+    {
+        return maxFiles;
+    }
 
 	void setMainWindowGeometry(QByteArray const &geometry) override
 	{
-		sets.setValue("mainwindow/geometry", geometry);
+        geomsCommitted = false;
+        geometries[0] = geometry;
 	}
 
 	void setPrefDialogGeometry(QByteArray const &geometry) override
 	{
-		sets.setValue("prefdialog/geometry", geometry);
+        geomsCommitted = false;
+        geometries[1] = geometry;
 	}
 
 	void setHashWindowGeometry(QByteArray const &geometry) override
 	{
-		sets.setValue("hashmatch/geometry", geometry);
+        geomsCommitted = false;
+        geometries[2] = geometry;
 	}
 
 	void setHashWindowSplitterState(QByteArray const &state) override
 	{
-		sets.setValue("hashmatch/splitter", state);
+        geomsCommitted = false;
+        geometries[3] = state;
 	}
 
 	void setUserLocale(QString const &locale) override
 	{
-		sets.setValue("locale", locale);
+        if (localeStr != locale)
+        {
+            localeSet = true;
+            localeStr = locale;
+            updateWindowLocale();
+        }
 	}
 
 	void setUserDefaultAlgorithm(Algo algo) override
 	{
 		if (isImplemented(algo))
 		{
-			sets.setValue("defaultalgo", int(algo));
+            defaultAlgo = algo;
 		}
 	}
 
 	void setTheme(Theme theme) override
 	{
-		if (theme == System)
-		{
-			sets.remove("darkmode");
-		}
-
-		sets.setValue("darkmode", theme == Dark);
+        if (currentTheme != theme)
+        {
+            currentTheme = theme;
+            updateWindowThemes();
+        }
 	}
 
 	void setSubdirectoryNavigate(bool navigate) override
 	{
-		sets.setValue("entersubdirs", navigate);
+        navigateSubs = navigate;
+	}
+
+	void disableSingleFileAlgo(Algo algo) override
+	{
+        if (isImplemented(algo) && !disabledFileAlgos.contains(algo))
+        {
+			disabledFileAlgos.push_back(algo);
+		}
+	}
+
+	void enableSingleFileAlgo(Algo algo) override
+    {
+        disabledFileAlgos.removeAll(algo);
 	}
 
 	void addContextMenuAlgo(Algo algo) override
 	{
-		if (isImplemented(algo))
-		{
-			sets.beginGroup("contextalgos");
-			sets.setValue(algoShort(algo), true);
-			sets.endGroup();
-			algos.push_back(algo);
+        if (isImplemented(algo) && !contextAlgos.contains(algo))
+        {
+			contextAlgos.push_back(algo);
 		}
 	}
 
 	void removeContextMenuAlgo(Algo algo) override
 	{
-		if (isImplemented(algo))
-		{
-			sets.beginGroup("contextalgos");
-			sets.setValue(algoShort(algo), false);
-			sets.endGroup();
-		}
-
-		algos.removeAll(algo);
+        contextAlgos.removeAll(algo);
 	}
+
+    void discardSettingsChanges() override
+    {
+        contextAlgos.clear();
+        disabledFileAlgos.clear();
+        loadSettingsFromFile();
+        updateWindowThemes();
+        updateWindowLocale();
+    }
+
+    void setMaxFilesToHash(size_t max) override
+    {
+        maxFiles = max;
+    }
+
+    void commitSettingsChanges() override
+    {
+        QSettings sets(org, app);
+        commitSettingsChanges(sets);
+    }
+
+    void commitSettingsChanges(QSettings &sets)
+    {
+        sets.beginGroup("contextalgos");
+        for (QString const &key : sets.allKeys())
+        {
+            Algo algo = shortToAlgo(key.toStdString().c_str());
+            if (!contextAlgos.contains(algo))
+            {
+                uninstallContextMenuAlgo(algo);
+                sets.remove(key);
+            }
+        }
+
+        for (Algo algo : contextAlgos)
+        {
+            installContextMenuAlgo(algo);
+            sets.setValue(algoShort(algo), true);
+        }
+        sets.endGroup();
+
+        sets.beginGroup("disabledalgos");
+        for (QString const &key : sets.allKeys())
+        {
+            if (!disabledFileAlgos.contains(shortToAlgo(key.toStdString().c_str())))
+            {
+                sets.remove(key);
+            }
+        }
+
+        for (Algo algo : disabledFileAlgos)
+        {
+            sets.setValue(algoShort(algo), true);
+        }
+        sets.endGroup();
+
+        if (currentTheme != System)
+        {
+            sets.setValue("darkmode", currentTheme == Dark);
+        }
+        else if (sets.contains("darkmode"))
+        {
+            sets.remove("darkmode");
+        }
+
+        if (localeSet)
+        {
+            if (localeStr == "XX")
+            {
+                sets.remove("locale");
+            }
+            else
+            {
+                sets.setValue("locale", localeStr);
+            }
+
+            localeSet = false;
+        }
+
+        // These just get set no matter what on close.
+        sets.setValue("defaultalgo", int(defaultAlgo));
+        sets.setValue("entersubdirs", navigateSubs);
+        sets.setValue("maxfiles", maxFiles);
+    }
 
 	void clearAllSettings() override
-	{
-		sets.clear();
-		algos.clear();
-	}
+    {
+        QSettings sets(org, app);
+        clearAllSettings(sets);
+    }
 
-	QByteArray getBytes(char const *key) const
-	{
-		return sets.value(key, {}).toByteArray();
-	}
+    void clearAllSettings(QSettings &sets)
+    {
+        disabledFileAlgos.clear();
+        contextAlgos.clear();
+        installDefaults(sets);
+        loadSettingsFromFile(sets);
+        updateWindowThemes();
+        updateWindowLocale();
+    }
 
-	void init()
-	{
-		sets.beginGroup("contextalgos");
-		for (QString const &key : sets.allKeys())
+    void init()
+    {
+        QSettings sets(org, app);
+        init(sets);
+    }
+
+    void init(QSettings &sets)
+    {
+        if (sets.allKeys().empty())
 		{
-			if (sets.value(key).toBool())
-			{
-				algos.push_back(shortToAlgo(key.toStdString().c_str()));
-			}
+            installDefaults(sets);
 		}
-		sets.endGroup();
+        else
+        {
+            loadSettingsFromFile(sets);
+        }
+
+        readGeometries(sets);
+    }
+
+    void loadSettingsFromFile()
+    {
+        QSettings sets(org, app);
+        loadSettingsFromFile(sets);
+    }
+
+    void loadSettingsFromFile(QSettings &sets)
+    {
+        if (contextAlgos.isEmpty())
+        {
+            sets.beginGroup("contextalgos");
+            for (QString const &key : sets.allKeys())
+            {
+                if (sets.value(key).toBool())
+                {
+                    contextAlgos.push_back(shortToAlgo(key.toStdString().c_str()));
+                }
+            }
+
+            sets.endGroup();
+        }
+
+        if (disabledFileAlgos.isEmpty())
+        {
+            sets.beginGroup("disabledalgos");
+            for (QString const &key : sets.allKeys())
+            {
+                if (sets.value(key).toBool())
+                {
+                    disabledFileAlgos.push_back(shortToAlgo(key.toStdString().c_str()));
+                }
+            }
+
+            sets.endGroup();
+        }
+
+        currentTheme = sets.contains("darkmode") ? (sets.value("darkmode").toBool() ? Dark : Light) : System;
+        localeStr = sets.value("locale", "XX").toString();
+        defaultAlgo = Algo(sets.value("defaultalgo", int(Algo::SHA2_256)).toInt());
+        maxFiles = sets.value("maxfiles", 100000).toULongLong();
+        navigateSubs = sets.value("entersubdirs").toBool();
+    }
+
+    void commitGeometries()
+    {
+        // Don't bother creating a QSettings if the geoms are already committed.
+        if (!geomsCommitted)
+        {
+            QSettings sets(org, app);
+            commitGeometries(sets);
+        }
+    }
+
+    void commitGeometries(QSettings &sets)
+    {
+        if (!geomsCommitted)
+        {
+            sets.setValue("mainwindow/geometry", geometries[0]);
+            sets.setValue("prefdialog/geometry", geometries[1]);
+            sets.setValue("hashmatch/geometry", geometries[2]);
+            sets.setValue("hashmatch/splitter", geometries[3]);
+            geomsCommitted = true;
+        }
+    }
+
+    void readGeometries()
+    {
+        QSettings sets(org, app);
+        readGeometries(sets);
+    }
+
+    void readGeometries(QSettings &sets)
+    {
+        geometries.push_back(sets.value("mainwindow/geometry", {}).toByteArray());
+        geometries.push_back(sets.value("prefdialog/geometry", {}).toByteArray());
+        geometries.push_back(sets.value("hashmatch/geometry", {}).toByteArray());
+        geometries.push_back(sets.value("hashmatch/splitter", {}).toByteArray());
+    }
+
+    void installDefaults()
+    {
+        QSettings sets(org, app);
+        installDefaults(sets);
+    }
+
+    void installDefaults(QSettings &sets)
+    {
+        sets.clear();
+		for (Algo algo : { Algo::SHA2_256, Algo::SHA3_256 })
+		{
+            installContextMenuAlgo(algo);
+            contextAlgos.push_back(algo);
+		}
+
+        // MD2 is depressingly slow, so just disable that by default.
+        disabledFileAlgos.push_back(Algo::MD2);
+        // The string "XX" indicates there is no selected locality, meaning use the system locale.
+        localeStr = "XX";
+        // The rest are just standard defaults.
+        currentTheme = System;
+        defaultAlgo = Algo::SHA2_256;
+        navigateSubs = false;
+        commitSettingsChanges(sets);
 	}
 
-	QSettings sets;
-	QList<Algo> algos;
+    void installContextMenuAlgo(Algo algo)
+    {
+        installer.installContextMenuHandler(algo);
+    }
+
+    void uninstallContextMenuAlgo(Algo algo)
+    {
+        installer.uninstallContextMenuHandler(algo);
+    }
+
+    void updateWindowThemes()
+    {
+        if (listener)
+        {
+            listener->themeChanged();
+        }
+    }
+
+    void updateWindowLocale()
+    {
+        if (listener)
+        {
+            listener->languageChanged();
+        }
+    }
+
+    QString org, app;
+    SettingsListener *listener;
+    // Each window has a designated position in this list. The MainWindow is in position 0, the PreferencesDialog is
+    // in position 1, and the HashMatchWindow is in position 2. The HashMatchWindow splitter state is in position 3.
+    // Other QByteArray data should follow after that.
+    QList<QByteArray> geometries;
+    ContextInstall installer;
+    bool geomsCommitted = true, localeSet = false;
+    Theme currentTheme;
+    Algo defaultAlgo;
+    QString localeStr;
+    bool navigateSubs;
+    size_t maxFiles;
+	QList<Algo> disabledFileAlgos, contextAlgos;
 };
 
-unique_ptr<UserSettings> UserSettings::make(QString const &orgName, QString const &appName)
+unique_ptr<UserSettings> UserSettings::make(QString const &orgName,QString const &appName, SettingsListener *listener)
 {
-	return make_unique<UserSettingsImpl>(orgName, appName);
+    return make_unique<UserSettingsImpl>(orgName, appName, listener);
 }
 
-std::unique_ptr<UserSettings> UserSettings::make()
+std::unique_ptr<UserSettings> UserSettings::make(SettingsListener *listener)
 {
-	return make_unique<UserSettingsImpl>();
+    return make_unique<UserSettingsImpl>(listener);
 }
+
+} // Namespace KirHut::SFH

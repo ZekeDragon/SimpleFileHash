@@ -301,7 +301,7 @@ void TestHashTask::running()
 
 void TestHashTask::pausing()
 {
-	HashTask task("../lfolder/LargeBlock3.txt", Algo::SHA2_256);
+    HashTask task("../lfolder/LargeBlock3.txt", Algo::SHA2_256);
 	QSignalSpy pausedSpy(&task, SIGNAL(paused()));
 	QSignalSpy unpausedSpy(&task, SIGNAL(unpaused()));
 	QSignalSpy completeSpy(&task, SIGNAL(completed()));
@@ -329,7 +329,7 @@ void TestHashTask::pausing()
 
 void TestHashTask::canceling()
 {
-	HashTask task("../lfolder/LargeBlock3.txt", Algo::SHA2_256);
+	HashTask task("../lfolder/LargeBlock3.txt", Algo::SM3);
 	QSignalSpy canceledSpy(&task, SIGNAL(canceled()));
 	QSignalSpy completeSpy(&task, SIGNAL(completed()));
 	QVERIFY(canceledSpy.isValid());

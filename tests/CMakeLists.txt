@@ -13,9 +13,9 @@ set(TESTS_TO_EXECUTE
     HashTasksModel
 )
 
-set(TEST_SOURCE_FILES ${TRANSLATE_SOURCES})
-list(REMOVE_ITEM TEST_SOURCE_FILES main.cpp)
-list(TRANSFORM TEST_SOURCE_FILES PREPEND "${SimpleFileHash_SOURCE_DIR}/")
+#set(TEST_SOURCE_FILES ${TRANSLATE_SOURCES})
+#list(REMOVE_ITEM TEST_SOURCE_FILES main.cpp)
+#list(TRANSFORM TEST_SOURCE_FILES PREPEND "${SimpleFileHash_SOURCE_DIR}/")
 
 configure_file(SmallBlock.txt SmallBlock.txt COPYONLY)
 configure_file(TestBlock1.txt tfolder/TestBlock1.txt COPYONLY)
@@ -27,18 +27,18 @@ configure_file(LargeBlock1.txt lfolder/LargeBlock1.txt COPYONLY)
 configure_file(LargeBlock2.txt lfolder/LargeBlock2.txt COPYONLY)
 configure_file(LargeBlock3.txt lfolder/LargeBlock3.txt COPYONLY)
 
-add_library(libTestSimpleFileHash STATIC ${TEST_SOURCE_FILES})
-target_include_directories(libTestSimpleFileHash PRIVATE ${REQUIRED_INCLUDES})
-target_compile_definitions(libTestSimpleFileHash PRIVATE SFH_TEST_BUILD)
-target_link_libraries(libTestSimpleFileHash
-    PRIVATE Qt6::Widgets
-    PRIVATE Qt6::Concurrent
-    PRIVATE cryptopp::cryptopp
-)
+#add_library(libTestSimpleFileHash STATIC ${TEST_SOURCE_FILES})
+#target_include_directories(libTestSimpleFileHash PRIVATE ${REQUIRED_INCLUDES})
+#target_compile_definitions(libTestSimpleFileHash PRIVATE SFH_TEST_BUILD)
+#target_link_libraries(libTestSimpleFileHash
+#    PRIVATE Qt6::Widgets
+#    PRIVATE Qt6::Concurrent
+#    PRIVATE cryptopp::cryptopp
+#)
 
 foreach(TESTNAME ${TESTS_TO_EXECUTE})
     add_executable(SFHTest${TESTNAME} Test${TESTNAME}.cpp)
     add_test(NAME ${TESTNAME} COMMAND SFHTest${TESTNAME})
     target_include_directories(SFHTest${TESTNAME} PRIVATE ${REQUIRED_INCLUDES})
-    target_link_libraries(SFHTest${TESTNAME} PRIVATE libTestSimpleFileHash Qt6::Test)
+    target_link_libraries(SFHTest${TESTNAME} PRIVATE libSimpleFileHash Qt6::Test)
 endforeach()

@@ -36,6 +36,7 @@ public:
 	static FileHashApplication *fileApp();
 
 	virtual UserSettings &settings() = 0;
+	virtual QTranslator &translator() = 0;
 	virtual QString const &locale() = 0;
 
 	virtual int exec() = 0;
@@ -43,6 +44,31 @@ public:
 protected:
 	FileHashApplication() = default;
 };
+
+constexpr char const *systemStyle()
+{
+    if constexpr (isMacOS)
+    {
+        return "macos";
+    }
+
+    return "fusion";
+}
+
+constexpr char const *organizationName()
+{
+    return "KirHut Software";
+}
+
+constexpr char const *organizationDomain()
+{
+    return "kirhut.com";
+}
+
+constexpr char const *applicationName()
+{
+    return "SimpleFileHash";
+}
 
 }
 

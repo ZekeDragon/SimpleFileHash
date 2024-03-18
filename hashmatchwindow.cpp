@@ -26,23 +26,24 @@
 
 #include "filehashapplication.hpp"
 
-using namespace KirHut::SFH;
-
-struct HashMatchWindow::Impl
+namespace KirHut::SFH
 {
-	Impl(HashMatchWindow *top) :
+
+struct HashMatchWindow::Impl : public Ui::HashMatchWindow
+{
+    Impl(SFH::HashMatchWindow *top) :
 	    top(top)
 	{
-		ui.setupUi(top);
+        setupUi(top);
 
 		UserSettings &settings = FileHashApplication::fileApp()->settings();
 		if (QByteArray state = settings.hashWindowSplitterState(); !state.isEmpty())
 		{
-			ui.splitter->restoreState(state);
+            splitter->restoreState(state);
 		}
 		else
 		{
-			ui.splitter->setSizes({120, 480});
+            splitter->setSizes({120, 480});
 		}
 
 		if (QByteArray geometry = settings.hashWindowGeometry(); !geometry.isEmpty())
@@ -61,8 +62,7 @@ struct HashMatchWindow::Impl
 		return false;
 	}
 
-	Ui::HashMatchWindow ui;
-	HashMatchWindow *top;
+    SFH::HashMatchWindow *top;
 };
 
 HashMatchWindow::HashMatchWindow(QWidget *parent) :
@@ -120,10 +120,17 @@ void HashMatchWindow::setHashSumFile(QString filename)
 	}
 }
 
+void HashMatchWindow::retranslate()
+{
+    im->retranslateUi(this);
+}
+
 void HashMatchWindow::closeEvent(QCloseEvent *event)
 {
 	UserSettings &settings = FileHashApplication::fileApp()->settings();
 	settings.setHashWindowGeometry(saveGeometry());
-	settings.setHashWindowSplitterState(im->ui.splitter->saveState());
+    settings.setHashWindowSplitterState(im->splitter->saveState());
 	QWidget::closeEvent(event);
 }
+
+} // Namespace KirHut::SFH

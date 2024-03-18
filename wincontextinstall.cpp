@@ -1,6 +1,6 @@
 /***********************************************************************************************************************
 ** The Simple Qt File Hashing Application
-** mainwindow.hpp
+** wincontextinstall.cpp
 ** Copyright (C) 2024 Ezekiel Oruven
 **
 ** This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
@@ -18,47 +18,18 @@
 ** You should have received a copy of the GNU Affero General Public License along with this program.  If not, see
 ** <http://www.gnu.org/licenses/>.
 ***********************************************************************************************************************/
-#pragma once
+#include "contextinstall.hpp"
 
-#include <QMainWindow>
+using namespace KirHut::SFH;
 
-#include "sfhbase.hpp"
+ContextInstall::ContextInstall() {}
 
-namespace KirHut::SFH
+void ContextInstall::installContextMenuHandler(Algo algo)
 {
+    // TODO: Make a Windows Context Menu Handler installation!!!
+}
 
-class MainWindow : public QMainWindow
+void ContextInstall::uninstallContextMenuHandler(Algo algo)
 {
-	Q_OBJECT
-
-public:
-	MainWindow(const QStringList &startingFiles = {}, QWidget *parent = nullptr);
-    ~MainWindow();
-
-signals:
-	void localeChange();
-
-public slots:
-	void startCancelButton();
-	void openFiles();
-	void openDirectory();
-	void newHashAlgorithm();
-
-	void openMatchFile();
-	void jobFinished();
-	void jobCanceled();
-
-    void retranslate();
-
-protected:
-	void closeEvent(QCloseEvent *event) override;
-	void changeEvent(QEvent *event) override;
-    void dragEnterEvent(QDragEnterEvent *event) override;
-    void dropEvent(QDropEvent *event) override;
-
-private:
-	struct Impl;
-	unique_ptr<Impl> im;
-};
-
+    // TODO: Make a Windows Context Menu Handler uninstallation!!!
 }

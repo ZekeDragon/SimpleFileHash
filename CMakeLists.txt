@@ -50,10 +50,10 @@ set(TS_FILES
 )
 
 set(TRANSLATE_SOURCES
-    main.cpp
     sfhbase.hpp
     hashalgo.hpp
     hashalgo.cpp
+    contextinstall.hpp
     filehashapplication.hpp
     filehashapplication.cpp
     hashtask.hpp
@@ -65,6 +65,8 @@ set(TRANSLATE_SOURCES
     hashmatchwindow.hpp
     hashmatchwindow.cpp
     hashmatchwindow.ui
+    algocheckbox.hpp
+    algocheckbox.cpp
     preferencesdialog.hpp
     preferencesdialog.cpp
     preferencesdialog.ui
@@ -77,32 +79,47 @@ set(TRANSLATE_SOURCES
     md6/md6.hpp
     md6/md6_compress.cpp
     md6/md6_mode.cpp
-    mainwindow.cpp
     mainwindow.hpp
+    mainwindow.cpp
     mainwindow.ui
 )
+
+if(WIN32)
+    list(APPEND TRANSLATE_SOURCES wincontextinstall.cpp)
+else()
+    list(APPEND TRANSLATE_SOURCES contextinstall.cpp)
+endif()
 
 set(PROJECT_SOURCES
     ${TRANSLATE_SOURCES}
     ${TS_FILES}
 )
 
+qt_add_library(libSimpleFileHash
+    STATIC
+    ${PROJECT_SOURCES}
+)
+
+target_link_libraries(libSimpleFileHash
+    PRIVATE Qt6::Widgets
+    PRIVATE Qt6::Concurrent
+    PRIVATE cryptopp::cryptopp
+)
+
 add_subdirectory(tests)
 
 qt_add_executable(SimpleFileHash
     MANUAL_FINALIZATION
-    ${PROJECT_SOURCES}
-)
-
-qt_add_translations(SimpleFileHash
-    TS_FILES ${TS_FILES}
-    SOURCES ${TRANSLATE_SOURCES}
+    main.cpp
 )
 
 target_link_libraries(SimpleFileHash
-    PRIVATE Qt6::Widgets
-    PRIVATE Qt6::Concurrent
-    PRIVATE cryptopp::cryptopp
+    PRIVATE libSimpleFileHash
+)
+
+qt_add_translations(libSimpleFileHash
+    TS_FILES ${TS_FILES}
+    SOURCES ${TRANSLATE_SOURCES}
 )
 
 set_target_properties(SimpleFileHash PROPERTIES
