@@ -191,7 +191,7 @@ const md6_word Smask = (md6_word)0x73;
 **
 */
 
-static
+//static
 void md6_main_compression_loop( md6_word* A , int r )
 /*
 ** Perform the md6 "main compression loop" on the array A.
@@ -243,7 +243,7 @@ void md6_main_compression_loop( md6_word* A , int r )
 ** Compresses n-word input to c-word output.
 */
 
-static
+//static
 int md6_compress( md6_word *C,
 		  md6_word *N,
 		  int r,
@@ -292,7 +292,7 @@ int md6_compress( md6_word *C,
 /* Control words.
 */
 
-static
+//static
 md6_control_word md6_make_control_word(	int r, 
 					int L, 
 					int z, 
@@ -326,7 +326,7 @@ md6_control_word md6_make_control_word(	int r,
 /* Node ID's.
 */
 
-static
+//static
 md6_nodeID md6_make_nodeID( int ell,                     /* level number */
 			      int i    /* index (0,1,2,...) within level */
 			    )
@@ -348,7 +348,7 @@ md6_nodeID md6_make_nodeID( int ell,                     /* level number */
 /* Assembling components of compression input.
 */
 
-static
+//static
 void md6_pack( md6_word*N,
 	       const md6_word* Q,
 	       md6_word* K,

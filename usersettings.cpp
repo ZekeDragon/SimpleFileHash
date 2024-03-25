@@ -283,7 +283,7 @@ struct UserSettingsImpl : public UserSettings
         sets.setValue("defaultalgo", int(defaultAlgo));
         sets.setValue("entersubdirs", navigateSubs);
         sets.setValue("displayuppercase", useUppercase);
-        sets.setValue("maxfiles", maxFiles);
+        sets.setValue("maxfiles", qulonglong(maxFiles));
     }
 
 	void clearAllSettings() override

@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <array>
 #include <vector>
+#include <limits>
 
 namespace KirHut
 {
@@ -35,6 +36,8 @@ namespace KirHut
  * defined statically so cannot be used in constexpr expressions.
  */
 constexpr int_fast16_t BYTE_BITS = std::numeric_limits<unsigned char>::digits;
+
+using std::size_t;
 
 constexpr uint_fast32_t bytesNeededForBits(uint_fast32_t numBits)
 {

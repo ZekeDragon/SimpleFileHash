@@ -156,7 +156,7 @@ extern int md6_full_hash( int d,                    /* hash bit length */
 
 /* Default number of rounds                                    */
 /* (as a function of digest size d and keylen                  */
-static
+//static
 int md6_default_r( int d ,
                    int keylen )
 { int r;
@@ -398,7 +398,7 @@ void append_bits( unsigned char *dest, unsigned int destlen,
 ** 
 */
 
-static
+//static
 int md6_full_init( md6_state *st,       /* uninitialized state to use */
 		   int d,                          /* hash bit length */
 		   unsigned char *key,        /* key; OK to give NULL */
