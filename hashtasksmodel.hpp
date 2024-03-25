@@ -50,6 +50,7 @@ public:
 
 private slots:
 	void hashUpdate(int index);
+    void refreshHashes();
 
 private:
 	struct Impl;

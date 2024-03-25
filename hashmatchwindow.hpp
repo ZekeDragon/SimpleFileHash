@@ -22,7 +22,7 @@
 
 #include <QWidget>
 
-#include "sfhbase.hpp"
+#include "hashmatchmodel.hpp"
 
 namespace KirHut::SFH
 {
@@ -35,13 +35,26 @@ public:
 	explicit HashMatchWindow(QWidget *parent = nullptr);
 	~HashMatchWindow();
 
-	void setHashSumFile(QString filename);
+    bool addHashSumFile(QString filename);
+    HashMatchModel &getMatchModel();
+
+    void showWithHashes(QStringList const &hashes, Algo algo = Algo::None, QStringList const &filenames = {});
+    void showWithHashes(QStringList const &hashes, QList<Algo> const &algos, QStringList const &filenames = {});
+    void showWithSumFile(QString filename);
 
 public slots:
 	void retranslate();
+    void newHashingJob();
+    void addInputHashes();
+    void clearHashMatches();
 
 protected:
 	void closeEvent(QCloseEvent *event) override;
+
+private slots:
+    void matchFound(QModelIndex const &index);
+    void matchNumsUpdate(int match, int most);
+    void unmatchNumsUpdate(int unmatch);
 
 private:
 	struct Impl;

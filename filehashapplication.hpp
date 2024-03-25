@@ -38,6 +38,7 @@ public:
 	virtual UserSettings &settings() = 0;
 	virtual QTranslator &translator() = 0;
 	virtual QString const &locale() = 0;
+    virtual QString const &systemDefaultStr() = 0;
 
 	virtual int exec() = 0;
 

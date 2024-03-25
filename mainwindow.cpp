@@ -28,9 +28,9 @@
 #include "filehashapplication.hpp"
 #include "preferencesdialog.hpp"
 #include "hashmatchwindow.hpp"
+#include "sfhranges.hpp"
+#include "aboutdialog.hpp"
 
-#include <algorithm>
-#include <ranges>
 #include <iterator>
 
 #include <QThreadPool>
@@ -42,13 +42,13 @@
 #include <QDropEvent>
 #include <QMimeData>
 #include <QUrl>
+#include <QDesktopServices>
 
 #include <QtSystemDetection>
 #include <QtDebug>
 
 namespace KirHut::SFH
 {
-namespace R = std::ranges;
 
 enum class RunState
 {
@@ -62,6 +62,7 @@ struct MainWindow::Impl : public Ui::MainWindow
 {
     Impl(SFH::MainWindow *top, QStringList const &startingFiles) :
 	    settings(FileHashApplication::fileApp()->settings()),
+        appIcon(":/kirhut/sfh/images/app.png"),
 	    pDialog(algos, top),
 	    top(top),
 	    state(RunState::Empty)
@@ -90,15 +91,23 @@ struct MainWindow::Impl : public Ui::MainWindow
         statusbar->addPermanentWidget(&jobBar);
 		initAlgoNamesBox();
         top->setAcceptDrops(true);
-        QObject::connect(hashNamesBox, SIGNAL(currentIndexChanged(int)), top, SLOT(newHashAlgorithm()));
+        top->setWindowIcon(appIcon);
+        pDialog.setWindowIcon(appIcon);
+        matchWin.setWindowIcon(appIcon);
+        about.setWindowIcon(appIcon);
         QObject::connect(action_Preferences, SIGNAL(triggered()), &pDialog, SLOT(open()));
         QObject::connect(action_Input, SIGNAL(triggered()), &matchWin, SLOT(show()));
         QObject::connect(top, SIGNAL(localeChange()), &pDialog, SLOT(retranslate()));
         QObject::connect(top, SIGNAL(localeChange()), &matchWin, SLOT(retranslate()));
+        QObject::connect(top, SIGNAL(localeChange()), &about, SLOT(retranslate()));
+        QObject::connect(top, SIGNAL(hashRefresh()), &matchWin.getMatchModel(), SLOT(refreshHashes()));
+        QObject::connect(top, SIGNAL(hashRefresh()), &model, SLOT(refreshHashes()));
 	}
 
 	void initAlgoNamesBox()
 	{
+        // We don't want hashNamesBox making noise while we're modifying it, so first block the signals.
+        QSignalBlocker blocker(hashNamesBox);
         hashNamesBox->clear();
 		int index = 0;
 		bool found = false;
@@ -114,6 +123,15 @@ struct MainWindow::Impl : public Ui::MainWindow
 
         hashNamesBox->setCurrentIndex(found ? index : algoIndex(Algo::SHA2_256));
 	}
+
+    void emptyHashing()
+    {
+        state = RunState::Empty;
+        model.setHashingJob({});
+        startCancelButton->setEnabled(false);
+        jobBar.setVisible(false);
+        setRunStateButtonText();
+    }
 
 	void hashingReady()
 	{
@@ -139,9 +157,10 @@ struct MainWindow::Impl : public Ui::MainWindow
 
 	int algoIndex(Algo algo)
 	{
-		if (auto loc = R::find(algos, algo); loc != R::end(algos))
+        auto [begin, end] = getIters(algos);
+        if (auto loc = R::find(algos, algo); loc != end)
 		{
-			return int(R::distance(R::begin(algos), loc));
+            return int(R::distance(begin, loc));
 		}
 
 		return -1;
@@ -160,6 +179,8 @@ struct MainWindow::Impl : public Ui::MainWindow
 		QObject::connect(job.get(), SIGNAL(jobComplete()), top, SLOT(jobFinished()));
 		QObject::connect(job.get(), SIGNAL(canceled()), top, SLOT(jobCanceled()));
 		QObject::connect(job.get(), SIGNAL(permilliUpdate(int)), &jobBar, SLOT(setValue(int)));
+        QObject::connect(job.get(),               SIGNAL(hashCompleted(QString,QString,KirHut::SFH::Algo)),
+                         &matchWin.getMatchModel(), SLOT(hashCompleted(QString,QString,KirHut::SFH::Algo)));
 		jobBar.setValue(0);
 		model.setHashingJob(std::move(job));
 	}
@@ -185,7 +206,7 @@ struct MainWindow::Impl : public Ui::MainWindow
 
     void setRunStateButtonText()
     {
-        if (state == RunState::Ready)
+        if (state == RunState::Ready || state == RunState::Empty)
         {
             startCancelButton->setText(tr("Start Hashing!"));
         }
@@ -195,7 +216,7 @@ struct MainWindow::Impl : public Ui::MainWindow
         }
         else if (state == RunState::Finished)
         {
-            startCancelButton->setText(tr("Copy Hashes!"));
+            startCancelButton->setText(tr("Match Hashes!"));
         }
     }
 
@@ -230,11 +251,13 @@ struct MainWindow::Impl : public Ui::MainWindow
 	};
 
 	UserSettings &settings;
+    QIcon appIcon;
 	HashTasksModel model;
 	AlgoList algos;
 	PreferencesDialog pDialog;
 	// Do not parent the "window" below, it is just a QWidget and would be added to the MainWindow layout!
 	HashMatchWindow matchWin;
+    AboutDialog about;
 	QProgressBar jobBar;
     SFH::MainWindow *top;
 	RunState state;
@@ -250,6 +273,11 @@ MainWindow::MainWindow(QStringList const &startingFiles, QWidget *parent) :
 MainWindow::~MainWindow()
 {
     // No implementation.
+}
+
+void MainWindow::refreshHashes()
+{
+    emit hashRefresh();
 }
 
 void MainWindow::startCancelButton()
@@ -277,14 +305,20 @@ void MainWindow::startCancelButton()
 
 	case RunState::Finished:
     {
-        QString accum;
+        QStringList hashes, fnames;
+        QList<Algo> algos;
         for (size_t i = 0; i < job->numTasks(); ++i)
         {
-            accum.append(job->taskAt(i)->hash() + "\n");
+            HashTask const &task = *(job->taskAt(i));
+            hashes << task.hash();
+            fnames << task.filename();
+            algos << task.hashAlgo();
         }
 
-        qApp->clipboard()->setText(accum);
+        im->matchWin.showWithHashes(hashes, algos, fnames);
+        im->emptyHashing();
     }
+
         break;
 
     default:;
@@ -295,8 +329,11 @@ void MainWindow::startCancelButton()
 void MainWindow::openFiles()
 {
 	QStringList files = QFileDialog::getOpenFileNames(this, tr("Select one or more files to Hash"));
-	im->initHashingJob(files);
-	im->hashingReady();
+    if (!files.isEmpty())
+    {
+        im->initHashingJob(files);
+        im->hashingReady();
+    }
 }
 
 void MainWindow::openDirectory()
@@ -312,8 +349,11 @@ void MainWindow::openDirectory()
 	}
 
 	QString directory = QFileDialog::getExistingDirectory(this, tr("Select a %1 to Hash").arg(dirName));
-	im->initHashingJob(QStringList{ directory });
-	im->hashingReady();
+    if (!directory.isEmpty())
+    {
+        im->initHashingJob(QStringList{ directory });
+        im->hashingReady();
+    }
 }
 
 void MainWindow::newHashAlgorithm()
@@ -326,12 +366,33 @@ void MainWindow::newHashAlgorithm()
 		im->hashingReady();
 
 	default:;
-	}
+    }
+}
+
+void MainWindow::copyHashes()
+{
+    if (HashingJob *job = im->model.getHashingJob())
+    {
+        QString accum;
+        for (size_t i = 0; i < job->numTasks(); ++i)
+        {
+            accum.append(job->taskAt(i)->hash() + "\n");
+        }
+
+        if (!accum.isEmpty())
+        {
+            qApp->clipboard()->setText(accum);
+        }
+    }
 }
 
 void MainWindow::openMatchFile()
 {
-
+    QString file = QFileDialog::getOpenFileName(this, tr("Select one hash sum or HashDeep file"));
+    if (!file.isEmpty())
+    {
+        im->matchWin.showWithSumFile(file);
+    }
 }
 
 void MainWindow::jobFinished()
@@ -341,7 +402,17 @@ void MainWindow::jobFinished()
 
 void MainWindow::jobCanceled()
 {
-	im->hashingReady();
+    im->hashingReady();
+}
+
+void MainWindow::openAbout()
+{
+    im->about.open();
+}
+
+void MainWindow::onlineHelp()
+{
+    QDesktopServices::openUrl(QUrl(tr("https://www.kirhut.com/docs/doku.php?id=monthly:project1")));
 }
 
 void MainWindow::retranslate()
@@ -352,6 +423,11 @@ void MainWindow::retranslate()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     im->settings.setMainWindowGeometry(saveGeometry());
+    if (im->matchWin.isVisible())
+    {
+        im->matchWin.close();
+    }
+
 	QMainWindow::closeEvent(event);
 }
 
@@ -377,6 +453,7 @@ void MainWindow::dropEvent(QDropEvent *event)
     if (event->mimeData()->hasUrls())
     {
         im->initDroppedJob(event->mimeData()->urls());
+        im->hashingReady();
     }
 }
 

@@ -25,7 +25,6 @@
 #include <filesystem>
 #include <fstream>
 
-#include <cassert>
 #include <atomic>
 
 #include <QTimer>
@@ -92,11 +91,12 @@ struct MD5Hasher : public Hasher
 		int lastReport = 0;
 
 		ifstream stream(p, std::ios::binary);
-		char buffer[PUMP_AMOUNT];
+        char buffer_block[PUMP_AMOUNT];
+        char *buffer = buffer_block;
 		while (!promise.isCanceled() && completed != fileSize)
 		{
 			stream.read(buffer, PUMP_AMOUNT);
-			completed += hashObj.provideInput(stream.gcount(), reinterpret_cast<std::byte *>(buffer));
+            completed += hashObj.provideInput(stream.gcount(), bit_cast<std::byte *>(buffer));
 			// This ensures that "update(1000)" isn't called until complete is ready (IE the hash is truly
 			// done).
 			int permilliEst = std::min(int((double(completed) / double(fileSize)) * 1000.), 999);
@@ -152,10 +152,11 @@ struct MD6Hasher : public Hasher
 		int lastReport = 0;
 
 		ifstream stream(p, std::ios::binary);
-		unsigned char buffer[PUMP_AMOUNT];
+        unsigned char buffer_block[PUMP_AMOUNT];
+        unsigned char *buffer = buffer_block;
 		while (!promise.isCanceled() && completed != fileSize)
-		{
-			stream.read(reinterpret_cast<char *>(buffer), PUMP_AMOUNT);
+        {
+            stream.read(bit_cast<char *>(buffer), PUMP_AMOUNT);
 			if (md6_update(&state, buffer, stream.gcount() * 8) != MD6_SUCCESS)
 			{
 				// It failed for some reason, but given proper programming, this should never happen, so it is ignored
@@ -178,7 +179,8 @@ struct MD6Hasher : public Hasher
 		{
 			// The MD6 reference implementation provides a lowercase hex string of the state, so good times.
 			md6_final(&state, nullptr);
-			result = bit_cast<char *>(&*state.hexhashval);
+            unsigned char *stBuffer = state.hexhashval;
+            result = bit_cast<char *>(stBuffer);
 			return true;
 		}
 
@@ -237,17 +239,17 @@ struct CryptoPPHasher : public Hasher
 		int lastReport = 0;
 
 		// This uses std::ifstream to avoid dependency on how Crypto++ opens files. This should work for all
-		// localities on all OS's. Also, using char instead of std::byte or char8_t because Crypto++ requires this.
+        // localities on all OS's. Also, using char instead of std::byte because Crypto++ requires this.
 		ifstream stream(p, std::ios::binary);
 		C::FileSource src(stream, false, new C::Redirector(filter));
+
+        // All the documentation for Crypto++ says that the Pump method returns the number of bytes that remain to
+        // be processed, but this is a lie. It actually returns the number of bytes that were processed! Thus it is
+        // correct to simply do this.
 		for (uintmax_t completed = 0, fileSize = FS::file_size(p);
 		     !promise.isCanceled() && completed != fileSize;
 		     completed += src.Pump(PUMP_AMOUNT))
-		{
-			// All the documentation for Crypto++ says that the Pump method returns the number of bytes that remain to
-			// be processed, but this is a lie. It actually returns the number of bytes that were processed! Thus it is
-			// correct to simply do this.
-
+        {
 			// This ensures that "update(1000)" isn't called until complete is ready (IE the hash is truly
 			// done).
 			int permilliEst = std::min(int((double(completed) / double(fileSize)) * 1000.), 999);
@@ -356,64 +358,63 @@ struct HashTask::Impl
 	static void outputCryptoPPWarning(QString fName, C::FileSource::Err const &err, QString errType)
 	{
 		QDebug warn = qWarning();
-		warn << HashTask::tr("Received Crypto++ file %1 from attempt to read file: ").arg(errType) << fName << "\n";
+        warn << QString("Received Crypto++ file %1 from attempt to read file: ").arg(errType) << fName << "\n";
 		switch (err.GetErrorType())
 		{
 		case C::Exception::ErrorType::IO_ERROR:
-			warn << HashTask::tr("This is due to an underlying Input error.") << "\n";
+            warn << "This is due to an underlying Input error.\n";
 			break;
 		case C::Exception::ErrorType::CANNOT_FLUSH:
-			warn << HashTask::tr("This is because a data buffer cannot be flushed correctly.") << "\n";
+            warn << "This is because a data buffer cannot be flushed correctly.\n";
 			break;
 		case C::Exception::ErrorType::DATA_INTEGRITY_CHECK_FAILED:
-			warn << HashTask::tr("There was a data integrity check that failed.") << "\n";
+            warn << "There was a data integrity check that failed.\n";
 			break;
 		case C::Exception::ErrorType::INVALID_ARGUMENT:
-			warn << HashTask::tr("This is because an argument provided was invalid.") << "\n";
+            warn << "This is because an argument provided was invalid.\n";
 			break;
 		case C::Exception::ErrorType::INVALID_DATA_FORMAT:
-			warn << HashTask::tr("This is because the data was in an invalid format.") << "\n";
+            warn << "This is because the data was in an invalid format.\n";
 			break;
 		case C::Exception::ErrorType::NOT_IMPLEMENTED:
-			warn << HashTask::tr("This is reportedly because the functionality is not implemented.") << "\n";
+            warn << "This is reportedly because the functionality is not implemented.\n";
 			break;
 		case C::Exception::ErrorType::OTHER_ERROR:
-			warn << HashTask::tr("This is because of an unknown error within Crypto++.") << "\n";
+            warn << "This is because of an unknown error within Crypto++.\n";
 		}
 
-		warn << HashTask::tr("The error reports: ") << err.GetWhat() << "\n";
+        warn << "The error reports: " << err.GetWhat();
 	}
 
 	void start()
 	{
 		auto fileSourceErrHandler = [f = fName](C::FileSource::Err err) {
-			outputCryptoPPWarning(f, err, tr("error"));
-			return HashTask::tr("Unknown error from Crypto++");
+            outputCryptoPPWarning(f, err, "error");
+            return tr("Unknown error from Crypto++");
 		};
 		auto fileSourceReadErrHandler = [f = fName](C::FileSource::ReadErr err) {
-			outputCryptoPPWarning(f, err, tr("read error"));
-			return HashTask::tr("Could not read the provided file");
+            outputCryptoPPWarning(f, err, "read error");
+            return tr("Could not read the provided file");
 		};
 		auto fileSourceOpenErrHandler = [f = fName](C::FileSource::OpenErr err) {
-			outputCryptoPPWarning(f, err, tr("open error"));
-			return HashTask::tr("Failed to open the file provided");
+            outputCryptoPPWarning(f, err, "open error");
+            return tr("Failed to open the file provided");
 		};
 		auto filesystemErrHandler = [f = fName](FS::filesystem_error err) {
-			qWarning() << HashTask::tr("There was an error in the filesystem while accessing this file: ") << f << "\n"
-			           << HashTask::tr("The reported error is: ") << err.code().value() << err.code().message() << "\n"
+            qWarning() << "There was an error in the filesystem while accessing this file: " << f << "\n"
+                       << "The reported error is: " << err.code().value() << err.code().message() << "\n"
 			           << err.what();
-			return HashTask::tr("Filesystem interaction error");
+            return tr("Filesystem interaction error");
 		};
 		auto badAllocHandler = [f = fName](std::bad_alloc err) {
-			qWarning() << HashTask::tr("The process ran out of memory while performing the hash task.") << "\n"
-			           << HashTask::tr("Filename in progress: ") << f << "\n"
-			           << err.what();
-			return HashTask::tr("Hashing process ran out of memory");
+            qWarning() << "The process ran out of memory while performing the hash task.\nFilename in progress: "
+                       << f << "\n" << err.what();
+            return tr("Hashing process ran out of memory");
 		};
 		auto unknownHandler = [f = fName] {
-			qWarning() << HashTask::tr("An unknown exception was thrown from the running hash task.") << "\n"
-			           << HashTask::tr("Filename in progress: ") << f << "\n";
-			return HashTask::tr("An unknown error occurred during hash");
+            qWarning() << "An unknown exception was thrown from the running hash task.\nFilename in progress: "
+                       << f << "\n";
+            return tr("An unknown error occurred during hash");
 		};
 
 		if (millis == -1)
@@ -430,7 +431,7 @@ struct HashTask::Impl
 			watcher.future().onFailed(unknownHandler);
 			// This is required because the watcher.finished() signal is connected to hashComplete(), which calls the
 			// watcher.result() method unconditionally, so there must be some kind of result.
-			watcher.future().onCanceled([] { return HashTask::tr("Canceled!"); });
+            watcher.future().onCanceled([] { return tr("Canceled!"); });
 			millis = 0;
 			hashStr = tr("Calculating Hash...");
 		}
@@ -558,7 +559,7 @@ void HashTask::hashComplete()
 
 void HashTask::finished()
 {
-	emit completed();
+    emit completed(im->hashStr, filename(), im->algorithm);
 }
 
 void HashTask::suspendOn()

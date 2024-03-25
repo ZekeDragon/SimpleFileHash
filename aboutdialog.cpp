@@ -1,6 +1,6 @@
 /***********************************************************************************************************************
 ** {{ project }}
-** algocheckbox.cpp
+** aboutdialog.cpp
 ** Copyright (C) 2023 KirHut Security Company
 **
 ** This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
@@ -14,24 +14,22 @@
 ** You should have received a copy of the GNU Affero General Public License along with this program.  If not, see
 ** <http://www.gnu.org/licenses/>.
 ***********************************************************************************************************************/
-#include "algocheckbox.hpp"
+#include "aboutdialog.hpp"
+#include "ui_aboutdialog.h"
 
-using namespace KirHut::SFH;
-
-AlgoCheckBox::AlgoCheckBox(Algo algo, QWidget *parent) :
-    QCheckBox(parent),
-    algo(algo)
+AboutDialog::AboutDialog(QWidget *parent)
+    : QDialog(parent)
+    , ui(new Ui::AboutDialog)
 {
-    setText(algoName(algo));
-    connect(this, SIGNAL(toggled(bool)), this, SLOT(toggleChange(bool)));
+    ui->setupUi(this);
 }
 
-Algo AlgoCheckBox::getAlgo() noexcept
+AboutDialog::~AboutDialog()
 {
-	return algo;
+    delete ui;
 }
 
-void AlgoCheckBox::toggleChange(bool checked) noexcept
+void AboutDialog::retranslate()
 {
-	emit algoToggled(algo, checked);
+    ui->retranslateUi(this);
 }

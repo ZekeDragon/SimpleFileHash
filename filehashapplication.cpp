@@ -45,73 +45,41 @@ struct DarkStyle : public QProxyStyle
     {
         const QColor text = isDark ? QColor(240, 240, 240) : Qt::black;
         const QColor backGround = isDark ? QColor(50, 50, 50) : QColor(239, 239, 239);
-        const QColor light = backGround.lighter(150);
         const QColor mid = backGround.darker(130);
-        const QColor midLight = mid.lighter(110);
         const QColor base = isDark ? backGround.darker(140) : Qt::white;
-        const QColor disabledBase = backGround;
         const QColor dark = backGround.darker(150);
         const QColor darkDisabled = QColor(209, 209, 209).darker(110);
         const QColor highlight = QColor(48, 140, 198);
         const QColor hightlightedText = isDark ? text : Qt::white;
         const QColor disabledText = isDark ? QColor(130, 130, 130) : QColor(190, 190, 190);
-        const QColor button = backGround;
         const QColor shadow = dark.darker(135);
-        const QColor disabledShadow = shadow.lighter(150);
-        const QColor disabledHighlight(145, 145, 145);
-        QColor placeholder = text;
-        placeholder.setAlpha(128);
         palette.setColor(QPalette::WindowText, text);
         palette.setColor(QPalette::Window, backGround);
         palette.setColor(QPalette::BrightText, text);
-        palette.setColor(QPalette::Light, light);
+        palette.setColor(QPalette::Light, backGround.lighter(150));
         palette.setColor(QPalette::Dark, dark);
         palette.setColor(QPalette::Mid, mid);
         palette.setColor(QPalette::Text, text);
         palette.setColor(QPalette::Base, base);
-        palette.setColor(QPalette::Midlight, midLight);
-        palette.setColor(QPalette::Button, button);
+        palette.setColor(QPalette::Midlight, mid.lighter(110));
+        palette.setColor(QPalette::Button, backGround);
         palette.setColor(QPalette::ButtonText, text);
         palette.setColor(QPalette::Shadow, shadow);
         palette.setColor(QPalette::HighlightedText, hightlightedText);
         palette.setColor(QPalette::Disabled, QPalette::Text, disabledText);
         palette.setColor(QPalette::Disabled, QPalette::WindowText, disabledText);
         palette.setColor(QPalette::Disabled, QPalette::ButtonText, disabledText);
-        palette.setColor(QPalette::Disabled, QPalette::Base, disabledBase);
+        palette.setColor(QPalette::Disabled, QPalette::Base, backGround);
         palette.setColor(QPalette::Disabled, QPalette::Dark, darkDisabled);
-        palette.setColor(QPalette::Disabled, QPalette::Shadow, disabledShadow);
+        palette.setColor(QPalette::Disabled, QPalette::Shadow, shadow.lighter(150));
         palette.setColor(QPalette::Active, QPalette::Highlight, highlight);
         palette.setColor(QPalette::Inactive, QPalette::Highlight, highlight);
-        palette.setColor(QPalette::Disabled, QPalette::Highlight, disabledHighlight);
-        palette.setColor(QPalette::PlaceholderText, placeholder);
-        // Use a more legible light blue on dark backgrounds than the default Qt::blue.
+        palette.setColor(QPalette::Disabled, QPalette::Highlight, QColor(145, 145, 145));
+        palette.setColor(QPalette::PlaceholderText, QColor(text.red(), text.green(), text.blue(), 128));
         if (isDark)
         {
-            palette.setBrush(QPalette::Link, highlight);
+            palette.setColor(QPalette::Link, highlight);
         }
-
-        /*
-        palette.setColor(QPalette::Window, QColor(53, 53, 53));
-        palette.setColor(QPalette::WindowText, QColor(224, 224, 224));
-        palette.setColor(QPalette::Disabled, QPalette::WindowText, QColor(127, 127, 127));
-        palette.setColor(QPalette::Base, QColor(42, 42, 42));
-        palette.setColor(QPalette::AlternateBase, QColor(66, 66, 66));
-        palette.setColor(QPalette::ToolTipBase, Qt::white);
-        palette.setColor(QPalette::ToolTipText, QColor(53, 53, 53));
-        palette.setColor(QPalette::Text, QColor(224, 224, 224));
-        palette.setColor(QPalette::Disabled, QPalette::Text, QColor(127, 127, 127));
-        palette.setColor(QPalette::Dark, QColor(35, 35, 35));
-        palette.setColor(QPalette::Shadow, QColor(20, 20, 20));
-        palette.setColor(QPalette::Button, QColor(53, 53, 53));
-        palette.setColor(QPalette::ButtonText, QColor(224, 224, 224));
-        palette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(127, 127, 127));
-        palette.setColor(QPalette::BrightText, Qt::white);
-        palette.setColor(QPalette::Link, QColor(42, 130, 218));
-        palette.setColor(QPalette::Highlight, QColor(42, 130, 218));
-        palette.setColor(QPalette::Disabled, QPalette::Highlight, QColor(80, 80, 80));
-        palette.setColor(QPalette::HighlightedText, QColor(224, 224, 224));
-        palette.setColor(QPalette::Disabled, QPalette::HighlightedText, QColor(127, 127, 127));
-        */
     }
 
     bool isDark;
@@ -129,13 +97,7 @@ struct FileHashImpl : public FileHashApplication, public SettingsListener
 		// TODO: Check if mainPtr is null first!
         overrideHashImpl(this);
 
-		QStringList uiLanguages = QLocale::system().uiLanguages();
-		if (QString locale = settingsPtr->userLocale(); !locale.isEmpty())
-		{
-			uiLanguages.push_front(locale);
-        }
-
-		for (QString const &locale : uiLanguages)
+        for (QString const &locale : QLocale::system().uiLanguages())
 		{
             if (translate->load(":/i18n/SimpleFileHash_" + QLocale(locale).name()))
 			{
@@ -145,10 +107,22 @@ struct FileHashImpl : public FileHashApplication, public SettingsListener
 			}
 		}
 
+        sysDefStr = MainWindow::tr("System Default (English)");
+        if (QString locale = settingsPtr->userLocale(); !locale.isEmpty())
+        {
+            if (unique_ptr<QTranslator> nTranslate = make_unique<QTranslator>(nullptr);
+                nTranslate->load(":/i18n/SimpleFileHash_" + locale))
+            {
+                translate = std::move(nTranslate);
+                app.installTranslator(translate.get());
+                curLocale = locale;
+            }
+        }
+
 		app.setOrganizationName(organizationName());
 		app.setOrganizationDomain(organizationDomain());
 		app.setApplicationName(applicationName());
-        app.setApplicationDisplayName(MainWindow::tr("The Qt Simple File Hashing Application"));
+        app.setApplicationDisplayName(MainWindow::tr("The Simple Qt File Hashing Application"));
 	}
 
 	int exec() override
@@ -180,9 +154,22 @@ struct FileHashImpl : public FileHashApplication, public SettingsListener
 		return curLocale;
 	}
 
+    QString const &systemDefaultStr() override
+    {
+        return sysDefStr;
+    }
+
     void settingsChanged() override
     {
         // No implementation currently.
+    }
+
+    void uppercaseChanged() override
+    {
+        if (mainWin)
+        {
+            mainWin->refreshHashes();
+        }
     }
 
     void languageChanged() override
@@ -240,7 +227,7 @@ struct FileHashImpl : public FileHashApplication, public SettingsListener
 
 	QApplication app;
     unique_ptr<QTranslator> translate;
-	QString curLocale = "en";
+    QString curLocale = "en", sysDefStr;
 	unique_ptr<UserSettings> settingsPtr;
     MainWindow *mainWin = nullptr;
 };

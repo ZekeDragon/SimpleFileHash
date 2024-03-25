@@ -1,6 +1,6 @@
 /***********************************************************************************************************************
 ** {{ project }}
-** algocheckbox.cpp
+** unmatchedhashmodel.hpp
 ** Copyright (C) 2023 KirHut Security Company
 **
 ** This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
@@ -14,24 +14,37 @@
 ** You should have received a copy of the GNU Affero General Public License along with this program.  If not, see
 ** <http://www.gnu.org/licenses/>.
 ***********************************************************************************************************************/
-#include "algocheckbox.hpp"
+#pragma once
 
-using namespace KirHut::SFH;
+#include <QAbstractTableModel>
 
-AlgoCheckBox::AlgoCheckBox(Algo algo, QWidget *parent) :
-    QCheckBox(parent),
-    algo(algo)
+#include "sfhbase.hpp"
+#include "hashalgo.hpp"
+
+namespace KirHut::SFH
 {
-    setText(algoName(algo));
-    connect(this, SIGNAL(toggled(bool)), this, SLOT(toggleChange(bool)));
-}
 
-Algo AlgoCheckBox::getAlgo() noexcept
+class UnmatchedHashModel : public QAbstractTableModel
 {
-	return algo;
-}
+    Q_OBJECT
+public:
+    explicit UnmatchedHashModel(QObject *parent = nullptr);
+    ~UnmatchedHashModel();
 
-void AlgoCheckBox::toggleChange(bool checked) noexcept
-{
-	emit algoToggled(algo, checked);
+    int rowCount(QModelIndex const &parent = QModelIndex()) const override;
+    int columnCount(QModelIndex const &parent = QModelIndex()) const override;
+    QVariant data(QModelIndex const &index, int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+
+    bool checkMatch(QString const &hash, QString const &filename = {}, Algo algo = Algo::None);
+    int numUnmatched() const;
+    void addUnmatched(QString const &hash, QString const &filename, Algo algo);
+    void clearModel();
+    void refreshHashes();
+
+private:
+    struct Impl;
+    unique_ptr<Impl> im;
+};
+
 }

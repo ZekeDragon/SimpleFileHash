@@ -24,6 +24,8 @@
 #include "filehashapplication.hpp"
 #include "algocheckbox.hpp"
 
+#include <QTranslator>
+
 namespace KirHut::SFH
 {
 using std::vector;
@@ -37,10 +39,7 @@ struct PreferencesDialog::Impl : public Ui::PreferencesDialog
 	    algos(algos)
 	{
         setupUi(top);
-	}
-
-    void init()
-    {
+        QSignalBlocker langBlock(languageBox);
         for (auto &[loc, dName] : displayNames)
         {
             languageBox->addItem(dName);
@@ -55,17 +54,12 @@ struct PreferencesDialog::Impl : public Ui::PreferencesDialog
             languageBox->setCurrentIndex(localeIndexPos(FileHashApplication::fileApp()->locale()));
         }
 
-        populatingLangLists = false;
-        // This connection is made here and not in the .ui file because the constructor dynamically adds entries
-        // to the languageBox. If the .ui file makes the connection, this will cause the localeChanged() slot to be
-        // called when we are just creating the languageBox, resulting in UB.
-        QObject::connect(languageBox, SIGNAL(currentIndexChanged(int)), top, SLOT(localeChanged(int)));
         initAlgorithms();
     }
 
     void initAlgorithms()
 	{
-        populatingAlgoLists = true;
+        QSignalBlocker algoBlock(defaultAlgorithmBox);
         defaultAlgorithmBox->clear();
 		int index = -1;
         Algo def = settings.userDefaultAlgorithm();
@@ -123,9 +117,7 @@ struct PreferencesDialog::Impl : public Ui::PreferencesDialog
 		if (index > -1)
 		{
             defaultAlgorithmBox->setCurrentIndex(index);
-		}
-
-        populatingAlgoLists = false;
+        }
 	}
 
     void updateWidgets()
@@ -169,19 +161,17 @@ struct PreferencesDialog::Impl : public Ui::PreferencesDialog
 	void retranslate()
 	{
         retranslateUi(top);
-		displayNames[0].second = tr("System Default");
         initAlgorithms();
 	}
 
     SFH::PreferencesDialog *top;
 	UserSettings &settings;
     vector<Algo> const &algos;
-    bool populatingAlgoLists = false, populatingLangLists = true;
 
 	// Notably, we do NOT TRANSLATE these display strings! They are meant to be in their target languages on all
 	// user systems so that a speaker of that language can recognize the language it is referring to.
 	vector<pair<QString, QString>> displayNames {
-		{ "XX", tr("System Default") },
+        { "XX", FileHashApplication::fileApp()->systemDefaultStr() },
 		{ "en", u8"English" },
 		{ "fr", u8"français" },
 		{ "es", u8"español" },
@@ -195,7 +185,7 @@ PreferencesDialog::PreferencesDialog(vector<Algo> const &algos, QWidget *parent)
     QDialog(parent),
     im(make_unique<PreferencesDialog::Impl>(algos, this))
 {
-    im->init();
+    // No implementation.
 }
 
 PreferencesDialog::~PreferencesDialog()
@@ -210,7 +200,7 @@ void PreferencesDialog::retranslate()
 
 void PreferencesDialog::localeChanged(int index)
 {
-    if (!im->populatingLangLists && index >= 0 && index < int(im->displayNames.size()))
+    if (index >= 0 && index < int(im->displayNames.size()))
     {
         im->settings.setUserLocale(im->displayNames[index].first);
     }
@@ -218,7 +208,7 @@ void PreferencesDialog::localeChanged(int index)
 
 void PreferencesDialog::defaultAlgoChanged(int index)
 {
-    if (!im->populatingAlgoLists && index >= 0 && index < int(im->algos.size()))
+    if (index >= 0 && index < int(im->algos.size()))
     {
         im->settings.setUserDefaultAlgorithm(im->algos.at(index));
     }
@@ -245,6 +235,11 @@ void PreferencesDialog::navigateSubdirs(bool shouldNavigate)
     im->settings.setSubdirectoryNavigate(shouldNavigate);
 }
 
+void PreferencesDialog::displayUppercase(bool uppercase)
+{
+    im->settings.setUppercaseDisplay(uppercase);
+}
+
 void PreferencesDialog::darkThemeSet(bool toggled)
 {
     if (toggled)
@@ -258,6 +253,15 @@ void PreferencesDialog::lightThemeSet(bool toggled)
     if (toggled)
     {
         overrideTheme(true);
+    }
+}
+
+void PreferencesDialog::maxFilesChanged(QString const &amount)
+{
+    bool isOk = true;
+    if (size_t amSize = amount.toULongLong(&isOk); isOk)
+    {
+        im->settings.setMaxFilesToHash(amSize);
     }
 }
 
@@ -275,6 +279,7 @@ void PreferencesDialog::showEvent(QShowEvent *event)
     }
 
     im->updateWidgets();
+    QDialog::showEvent(event);
 }
 
 void PreferencesDialog::singleFileToggle(Algo algo, bool checked)

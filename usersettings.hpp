@@ -95,6 +95,7 @@ public:
 	virtual Algo userDefaultAlgorithm() const = 0;
 	virtual Theme theme() const = 0;
 	virtual bool navigateSubdirectories() const = 0;
+    virtual bool displayInUppercase() const = 0;
 	virtual QList<Algo> const &disabledSingleFileAlgos() const = 0;
 	virtual QList<Algo> const &contextMenuAlgos() const = 0;
     virtual size_t maxFilesToHash() const = 0;
@@ -108,6 +109,7 @@ public:
 	virtual void setUserDefaultAlgorithm(Algo algo) = 0;
 	virtual void setTheme(Theme theme) = 0;
 	virtual void setSubdirectoryNavigate(bool navigate) = 0;
+    virtual void setUppercaseDisplay(bool inUpper) = 0;
 	virtual void disableSingleFileAlgo(Algo algo) = 0;
 	virtual void enableSingleFileAlgo(Algo algo) = 0;
 	virtual void addContextMenuAlgo(Algo algo) = 0;
@@ -133,6 +135,7 @@ public:
     virtual void settingsChanged() = 0;
     virtual void languageChanged() = 0;
     virtual void themeChanged() = 0;
+    virtual void uppercaseChanged() = 0;
 };
 
 }

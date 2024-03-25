@@ -20,6 +20,7 @@
 ***********************************************************************************************************************/
 #include "hashtasksmodel.hpp"
 
+#include "filehashapplication.hpp"
 #include "hashingjob.hpp"
 #include "hashtask.hpp"
 
@@ -28,17 +29,22 @@
 #include <QBrush>
 #include <QVariant>
 
-using namespace KirHut::SFH;
+namespace KirHut::SFH
+{
+
+constexpr int HASH_ROW = 2;
 
 struct HashTasksModel::Impl
 {
 	Impl(HashTasksModel *top) :
-	    top(top)
+        top(top),
+        settings(FileHashApplication::fileApp()->settings())
 	{
 		// No implementation.
 	}
 
 	HashTasksModel *top;
+    UserSettings &settings;
 	unique_ptr<HashingJob> curJob;
 };
 
@@ -56,19 +62,22 @@ HashTasksModel::~HashTasksModel()
 
 void HashTasksModel::setHashingJob(unique_ptr<HashingJob> &&job)
 {
-	if (im->curJob)
-	{
-		im->curJob->cancelJobs();
-	}
+    if (im->curJob)
+    {
+        im->curJob->cancelJobs();
+    }
 
-	for (size_t i = 0; i < job->numTasks(); ++i)
-	{
-		connect(job->taskAt(i), SIGNAL(dataChanged(int)), this, SLOT(hashUpdate(int)));
-	}
+    if (job)
+    {
+        for (size_t i = 0; i < job->numTasks(); ++i)
+        {
+            connect(job->taskAt(i), SIGNAL(dataChanged(int)), this, SLOT(hashUpdate(int)));
+        }
+    }
 
-	beginResetModel();
-	im->curJob = std::move(job);
-	endResetModel();
+    beginResetModel();
+    im->curJob = std::move(job);
+    endResetModel();
 }
 
 HashingJob *HashTasksModel::getHashingJob() const
@@ -78,22 +87,12 @@ HashingJob *HashTasksModel::getHashingJob() const
 
 int HashTasksModel::rowCount(QModelIndex const &parent) const
 {
-	if (parent.isValid())
-	{
-		return 0;
-	}
-
-	return im->curJob ? int(im->curJob->numTasks()) : 0;
+    return parent.isValid() || !im->curJob ? 0 : int(im->curJob->numTasks());
 }
 
 int HashTasksModel::columnCount(QModelIndex const &parent) const
 {
-	if (parent.isValid())
-	{
-		return 0;
-	}
-
-	return 3;
+    return parent.isValid() ? 0 : 3;
 }
 
 QVariant HashTasksModel::data(QModelIndex const &index, int role) const
@@ -115,7 +114,8 @@ QVariant HashTasksModel::data(QModelIndex const &index, int role) const
 			}
 			else if (task->isComplete())
 			{
-				return task->hash();
+                QString const &hash = task->hash();
+                return im->settings.displayInUppercase() ? hash.toUpper() : hash;
 			}
 
 			return task->permilliComplete();
@@ -161,7 +161,7 @@ QVariant HashTasksModel::data(QModelIndex const &index, int role) const
 			return QApplication::font();
 
 		case Qt::TextAlignmentRole:
-			if (index.column() < 2 || task->isComplete())
+            if (index.column() < HASH_ROW || task->isComplete())
 			{
 				return Qt::AlignLeft;
 			}
@@ -185,7 +185,7 @@ QVariant HashTasksModel::headerData(int section, Qt::Orientation orientation, in
 	{
 		if (section >= 0 && section < 3)
 		{
-			return array{ "Name of File", "Algorithm", "Hash Function Result" }[section];
+            return array{ tr("Name of File"), tr("Algorithm"), tr("Hash Function Result") }[section];
 		}
 
         return QVariant();
@@ -196,6 +196,14 @@ QVariant HashTasksModel::headerData(int section, Qt::Orientation orientation, in
 
 void HashTasksModel::hashUpdate(int ind)
 {
-	QModelIndex changed = index(ind, 2);
-	emit dataChanged(changed, changed);
+    QModelIndex changed = index(ind, HASH_ROW);
+    emit dataChanged(changed, changed);
 }
+
+void HashTasksModel::refreshHashes()
+{
+    QModelIndex top = index(0, HASH_ROW), bottom = index(rowCount() - 1, HASH_ROW);
+    emit dataChanged(top, bottom);
+}
+
+} // namespace KirHut::SFH

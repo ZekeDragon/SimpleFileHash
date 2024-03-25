@@ -60,7 +60,7 @@ public slots:
 
 signals:
 	void updated(int difference);
-	void completed();
+    void completed(QString const &hash, QString const &filename, KirHut::SFH::Algo algo);
 	void paused();
 	void unpaused();
 	void canceled();

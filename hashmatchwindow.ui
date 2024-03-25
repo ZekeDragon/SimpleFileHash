@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>478</width>
-    <height>401</height>
+    <width>688</width>
+    <height>438</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -32,12 +32,19 @@
         </widget>
        </item>
        <item>
-        <widget class="QPlainTextEdit" name="plainTextEdit"/>
+        <widget class="QPlainTextEdit" name="hashInputEdit">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enter hashes (in hexadecimal) you want to match to in this box. Each line represents a new hash.&lt;/p&gt;&lt;p&gt;This box can accept hashes in uppercase or lowercase, it will automatically convert as appropriate.&lt;/p&gt;&lt;p&gt;You may optionally include a filename after the hash by inputting a space followed by the filename, and optionally after a filename may include a hash algorithm name.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+        </widget>
        </item>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout">
          <item>
           <widget class="QPushButton" name="addMatchesButton">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Press this button to add the hashes input above to the matching table below. Any optionally input filename and hash algorithm name will be placed accordingly, or a &lt;span style=&quot; font-weight:700;&quot;&gt;*&lt;/span&gt; symbol will appear if no filename or algorithm are provided.&lt;/p&gt;&lt;p&gt;The &lt;span style=&quot; font-weight:700;&quot;&gt;*&lt;/span&gt; symbol means that any filename or algorithm will be matched to. This is unlikely to be a problem with algorithms, but filename may be an issue if you have multiple files that may be the same but have different names.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
            <property name="text">
             <string>Add Hash Matches</string>
            </property>
@@ -48,6 +55,9 @@
          </item>
          <item>
           <widget class="QPushButton" name="clearEntryFieldButton">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clear the text entry field above without adding those hashes to the matching table below. Primarily useful if there is a mistake in the input.&lt;/p&gt;&lt;p&gt;WARNING: You will lose any data entered above if it is not stored or saved elsewhere!&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
            <property name="text">
             <string>Clear Hash Entry</string>
            </property>
@@ -58,6 +68,9 @@
          </item>
          <item>
           <widget class="QPushButton" name="clearHashMatchesButton">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Press this to clear the Matches Found and Unmatched Hashes tables below.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
            <property name="text">
             <string>Clear Hash Matches</string>
            </property>
@@ -73,40 +86,110 @@
      <widget class="QWidget" name="verticalLayoutWidget">
       <layout class="QVBoxLayout" name="bottomLayout">
        <item>
-        <layout class="QHBoxLayout" name="centralWidgetsLayout">
-         <item>
-          <widget class="QLabel" name="matchTableLabel">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="text">
-            <string>Matches Found:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QCheckBox" name="saveSuccessiveCheck">
-           <property name="text">
-            <string>Save hash matches between successive hash jobs?</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <widget class="QTableView" name="tableView">
-         <property name="focusPolicy">
-          <enum>Qt::WheelFocus</enum>
+        <widget class="QTabWidget" name="matchTabs">
+         <property name="currentIndex">
+          <number>0</number>
          </property>
-         <property name="editTriggers">
-          <set>QAbstractItemView::NoEditTriggers</set>
-         </property>
-         <property name="tabKeyNavigation">
-          <bool>false</bool>
-         </property>
+         <widget class="QWidget" name="matchedTab">
+          <attribute name="title">
+           <string>0/0 Matches Found</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QTableView" name="hashMatchView">
+             <property name="focusPolicy">
+              <enum>Qt::WheelFocus</enum>
+             </property>
+             <property name="editTriggers">
+              <set>QAbstractItemView::NoEditTriggers</set>
+             </property>
+             <property name="tabKeyNavigation">
+              <bool>false</bool>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>16</width>
+               <height>16</height>
+              </size>
+             </property>
+             <attribute name="horizontalHeaderDefaultSectionSize">
+              <number>200</number>
+             </attribute>
+             <attribute name="horizontalHeaderStretchLastSection">
+              <bool>true</bool>
+             </attribute>
+             <attribute name="verticalHeaderVisible">
+              <bool>false</bool>
+             </attribute>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="unmatchedTab">
+          <attribute name="title">
+           <string>0 Unmatched Hashes</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_2">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QTableView" name="unmatchedHashView">
+             <property name="focusPolicy">
+              <enum>Qt::WheelFocus</enum>
+             </property>
+             <property name="editTriggers">
+              <set>QAbstractItemView::NoEditTriggers</set>
+             </property>
+             <property name="tabKeyNavigation">
+              <bool>false</bool>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>16</width>
+               <height>16</height>
+              </size>
+             </property>
+             <attribute name="horizontalHeaderDefaultSectionSize">
+              <number>200</number>
+             </attribute>
+             <attribute name="horizontalHeaderStretchLastSection">
+              <bool>true</bool>
+             </attribute>
+             <attribute name="verticalHeaderVisible">
+              <bool>false</bool>
+             </attribute>
+            </widget>
+           </item>
+          </layout>
+         </widget>
         </widget>
        </item>
       </layout>
@@ -116,13 +199,64 @@
   </layout>
  </widget>
  <tabstops>
-  <tabstop>plainTextEdit</tabstop>
+  <tabstop>hashInputEdit</tabstop>
   <tabstop>addMatchesButton</tabstop>
   <tabstop>clearEntryFieldButton</tabstop>
   <tabstop>clearHashMatchesButton</tabstop>
-  <tabstop>saveSuccessiveCheck</tabstop>
-  <tabstop>tableView</tabstop>
  </tabstops>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>clearEntryFieldButton</sender>
+   <signal>clicked()</signal>
+   <receiver>hashInputEdit</receiver>
+   <slot>clear()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>368</x>
+     <y>213</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>344</x>
+     <y>132</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>addMatchesButton</sender>
+   <signal>clicked()</signal>
+   <receiver>HashMatchWindow</receiver>
+   <slot>addInputHashes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>119</x>
+     <y>212</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>6</x>
+     <y>203</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clearHashMatchesButton</sender>
+   <signal>clicked()</signal>
+   <receiver>HashMatchWindow</receiver>
+   <slot>clearHashMatches()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>568</x>
+     <y>211</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>682</x>
+     <y>219</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>addInputHashes()</slot>
+  <slot>clearHashMatches()</slot>
+ </slots>
 </ui>

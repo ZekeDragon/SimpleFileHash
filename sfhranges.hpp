@@ -1,6 +1,6 @@
 /***********************************************************************************************************************
 ** The Simple Qt File Hashing Application
-** mainwindow.hpp
+** sfhranges.hpp
 ** Copyright (C) 2024 Ezekiel Oruven
 **
 ** This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
@@ -20,52 +20,19 @@
 ***********************************************************************************************************************/
 #pragma once
 
-#include <QMainWindow>
-
-#include "sfhbase.hpp"
+#include <ranges>
 
 namespace KirHut::SFH
 {
 
-class MainWindow : public QMainWindow
+namespace R = std::ranges;
+
+template<R::range Rng>
+auto getIters(Rng &r)
 {
-	Q_OBJECT
+    return std::pair{ R::begin(r), R::end(r) };
+}
 
-public:
-	MainWindow(const QStringList &startingFiles = {}, QWidget *parent = nullptr);
-    ~MainWindow();
-
-    void refreshHashes();
-
-signals:
-	void localeChange();
-    void hashRefresh();
-
-public slots:
-	void startCancelButton();
-	void openFiles();
-	void openDirectory();
-	void newHashAlgorithm();
-    void copyHashes();
-
-	void openMatchFile();
-	void jobFinished();
-	void jobCanceled();
-
-    void openAbout();
-    void onlineHelp();
-
-    void retranslate();
-
-protected:
-	void closeEvent(QCloseEvent *event) override;
-	void changeEvent(QEvent *event) override;
-    void dragEnterEvent(QDragEnterEvent *event) override;
-    void dropEvent(QDropEvent *event) override;
-
-private:
-	struct Impl;
-	unique_ptr<Impl> im;
-};
+using std::back_inserter;
 
 }

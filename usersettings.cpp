@@ -89,6 +89,11 @@ struct UserSettingsImpl : public UserSettings
         return navigateSubs;
 	}
 
+    bool displayInUppercase() const override
+    {
+        return useUppercase;
+    }
+
 	QList<Algo> const &disabledSingleFileAlgos() const override
 	{
 		return disabledFileAlgos;
@@ -160,6 +165,15 @@ struct UserSettingsImpl : public UserSettings
         navigateSubs = navigate;
 	}
 
+    void setUppercaseDisplay(bool inUpper) override
+    {
+        if (useUppercase != inUpper)
+        {
+            useUppercase = inUpper;
+            updateUppercase();
+        }
+    }
+
 	void disableSingleFileAlgo(Algo algo) override
 	{
         if (isImplemented(algo) && !disabledFileAlgos.contains(algo))
@@ -193,6 +207,7 @@ struct UserSettingsImpl : public UserSettings
         loadSettingsFromFile();
         updateWindowThemes();
         updateWindowLocale();
+        updateUppercase();
     }
 
     void setMaxFilesToHash(size_t max) override
@@ -267,6 +282,7 @@ struct UserSettingsImpl : public UserSettings
         // These just get set no matter what on close.
         sets.setValue("defaultalgo", int(defaultAlgo));
         sets.setValue("entersubdirs", navigateSubs);
+        sets.setValue("displayuppercase", useUppercase);
         sets.setValue("maxfiles", maxFiles);
     }
 
@@ -347,6 +363,7 @@ struct UserSettingsImpl : public UserSettings
         defaultAlgo = Algo(sets.value("defaultalgo", int(Algo::SHA2_256)).toInt());
         maxFiles = sets.value("maxfiles", 100000).toULongLong();
         navigateSubs = sets.value("entersubdirs").toBool();
+        useUppercase = sets.value("displayuppercase").toBool();
     }
 
     void commitGeometries()
@@ -437,6 +454,14 @@ struct UserSettingsImpl : public UserSettings
         }
     }
 
+    void updateUppercase()
+    {
+        if (listener)
+        {
+            listener->uppercaseChanged();
+        }
+    }
+
     QString org, app;
     SettingsListener *listener;
     // Each window has a designated position in this list. The MainWindow is in position 0, the PreferencesDialog is
@@ -448,7 +473,7 @@ struct UserSettingsImpl : public UserSettings
     Theme currentTheme;
     Algo defaultAlgo;
     QString localeStr;
-    bool navigateSubs;
+    bool navigateSubs, useUppercase;
     size_t maxFiles;
 	QList<Algo> disabledFileAlgos, contextAlgos;
 };

@@ -74,6 +74,12 @@ public:
         return str;
     }
 
+    QString const &systemDefaultStr() override
+    {
+        static QString str;
+        return str;
+    }
+
     int exec() override
     {
         return 0;

@@ -41,8 +41,10 @@ public slots:
 	void defaultAlgoChanged(int index);
 	void overrideTheme(bool shouldOverride);
 	void navigateSubdirs(bool shouldNavigate);
+    void displayUppercase(bool uppercase);
 	void darkThemeSet(bool toggled);
 	void lightThemeSet(bool toggled);
+    void maxFilesChanged(QString const &amount);
 
 	void retranslate();
 

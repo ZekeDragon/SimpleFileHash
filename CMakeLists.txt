@@ -51,6 +51,7 @@ set(TS_FILES
 
 set(TRANSLATE_SOURCES
     sfhbase.hpp
+    sfhranges.hpp
     hashalgo.hpp
     hashalgo.cpp
     contextinstall.hpp
@@ -70,6 +71,9 @@ set(TRANSLATE_SOURCES
     preferencesdialog.hpp
     preferencesdialog.cpp
     preferencesdialog.ui
+    aboutdialog.hpp
+    aboutdialog.cpp
+    aboutdialog.ui
     hashingjob.hpp
     hashingjob.cpp
     usersettings.hpp
@@ -79,6 +83,10 @@ set(TRANSLATE_SOURCES
     md6/md6.hpp
     md6/md6_compress.cpp
     md6/md6_mode.cpp
+    hashmatchmodel.hpp
+    hashmatchmodel.cpp
+    unmatchedhashmodel.hpp
+    unmatchedhashmodel.cpp
     mainwindow.hpp
     mainwindow.cpp
     mainwindow.ui
@@ -110,6 +118,7 @@ add_subdirectory(tests)
 
 qt_add_executable(SimpleFileHash
     MANUAL_FINALIZATION
+    images.qrc
     main.cpp
 )
 

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>407</width>
-    <height>246</height>
+    <width>432</width>
+    <height>274</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -30,7 +30,14 @@
        <item>
         <widget class="QCheckBox" name="enterSubdirectoriesCheck">
          <property name="text">
-          <string>Go Through Subdirectories When Hashing a Directory.</string>
+          <string>Go Through Subdirectories When Hashing a Directory?</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="displayUppercaseCheck">
+         <property name="text">
+          <string>Display Generated Hashes in Uppercase?</string>
          </property>
         </widget>
        </item>
@@ -154,8 +161,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>383</width>
-            <height>166</height>
+            <width>408</width>
+            <height>194</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="installContextLayout"/>
@@ -194,8 +201,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>383</width>
-            <height>166</height>
+            <width>408</width>
+            <height>194</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="singleFileAreaLayout"/>
@@ -239,7 +246,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>266</x>
-     <y>236</y>
+     <y>264</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -255,7 +262,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>334</x>
-     <y>236</y>
+     <y>264</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -287,7 +294,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>118</x>
-     <y>86</y>
+     <y>114</y>
     </hint>
     <hint type="destinationlabel">
      <x>193</x>
@@ -303,7 +310,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>228</x>
-     <y>86</y>
+     <y>114</y>
     </hint>
     <hint type="destinationlabel">
      <x>239</x>
@@ -318,8 +325,8 @@
    <slot>darkThemeSet(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>336</x>
-     <y>84</y>
+     <x>349</x>
+     <y>112</y>
     </hint>
     <hint type="destinationlabel">
      <x>295</x>
@@ -335,7 +342,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>385</x>
-     <y>162</y>
+     <y>190</y>
     </hint>
     <hint type="destinationlabel">
      <x>224</x>
@@ -383,11 +390,43 @@
    <hints>
     <hint type="sourcelabel">
      <x>305</x>
-     <y>182</y>
+     <y>210</y>
     </hint>
     <hint type="destinationlabel">
      <x>275</x>
      <y>120</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>numFilesEdit</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>PreferencesDialog</receiver>
+   <slot>maxFilesChanged(QString)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>343</x>
+     <y>150</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>263</x>
+     <y>110</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>displayUppercaseCheck</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>PreferencesDialog</receiver>
+   <slot>displayUppercase(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>298</x>
+     <y>86</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>248</x>
+     <y>162</y>
     </hint>
    </hints>
   </connection>
@@ -401,5 +440,7 @@
   <slot>defaultAlgoChanged(int)</slot>
   <slot>acceptChanges()</slot>
   <slot>rejectChanges()</slot>
+  <slot>maxFilesChanged(QString)</slot>
+  <slot>displayUppercase(bool)</slot>
  </slots>
 </ui>

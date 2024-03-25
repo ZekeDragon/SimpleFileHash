@@ -35,6 +35,13 @@ using std::error_code;
 using std::runtime_error;
 namespace FS = std::filesystem;
 
+enum class AddHashState
+{
+    Success = 0,
+    ExceedMax,
+    Failed
+};
+
 struct HashingJob::Impl
 {
     Impl(HashingJob *top, QStringList const &paths, Algo algo, bool useAll) :
@@ -47,8 +54,8 @@ struct HashingJob::Impl
             this->algo = settings.userDefaultAlgorithm();
 		}
 
-		FS::path stdPath;
-
+        FS::path stdPath;
+        AddHashState hState = AddHashState::Success;
 		for (QString const &path : paths)
         {
 			stdPath = path.toStdString();
@@ -57,7 +64,7 @@ struct HashingJob::Impl
 			{
 				// If we can't derive an absolute path from a relative path, just skip it.
 				// TODO: Implement user notification (for example with the status bar or a log of some kind).
-                qDebug() << "Failed to derive absolute path: " << path;
+                qWarning() << "Failed to derive absolute path: " << path;
 				continue;
 			}
 
@@ -65,62 +72,112 @@ struct HashingJob::Impl
             {
 				if (FS::is_directory(stdPath))
                 {
-					addDirectory(stdPath);
+                    if (hState = addDirectory(stdPath); hState != AddHashState::Success)
+                    {
+                        break;
+                    }
 				}
 				else
 				{
-					addTask(stdPath);
+                    if (hState = addTask(stdPath); hState != AddHashState::Success)
+                    {
+                        break;
+                    }
 				}
 			}
 		}
 
-		if (taskQueue.size() == 1 && algo == Algo::None)
-		{
-            initSingleFile(stdPath, useAll);
-		}
+        if (taskQueue.size() == 1 && algo == Algo::None)
+        {
+            hState = initSingleFile(stdPath, useAll);
+        }
+
+        if (hState == AddHashState::ExceedMax)
+        {
+            // TODO: Notify the user the max has been exceeded.
+        }
+        else if (hState == AddHashState::Failed)
+        {
+            qWarning() << "Adding all of the hashes to the HashingJob object failed for an unknown reason.";
+        }
 	}
 
-	void addDirectory(FS::path const &dir)
+    AddHashState addDirectory(FS::path const &dir)
 	{
 		typedef FS::directory_iterator DirIter;
 		directories << dir.u8string().c_str();
 		error_code checker;
+        AddHashState retState = AddHashState::Success;
 		for (DirIter it(dir, checker); it != DirIter(); ++it)
 		{
-			if (it->is_regular_file(checker))
+            if (checker)
+            {
+                return AddHashState::Failed;
+            }
+            else if (it->is_regular_file(checker))
 			{
-				addTask(it->path());
+                if (retState = addTask(it->path()); retState != AddHashState::Success)
+                {
+                    break;
+                }
 			}
 			else if (checker)
 			{
-				// TODO: Do something.
+                return AddHashState::Failed;
 			}
             else if (settings.navigateSubdirectories() && it->is_directory())
 			{
-				addDirectory(it->path());
+                if (retState = addDirectory(it->path()); retState != AddHashState::Success)
+                {
+                    break;
+                }
 			}
 		}
+
+        return retState;
 	}
 
-	void addTask(FS::path const &path)
+    AddHashState addTask(FS::path const &path)
 	{
-		pushTask(path, algo);
-		files << taskQueue.back()->filepath();
+        if (taskQueue.size() < settings.maxFilesToHash())
+        {
+            try
+            {
+                pushTask(path, algo);
+                files << taskQueue.back()->filepath();
+            }
+            catch (std::bad_alloc &ex)
+            {
+                return AddHashState::Failed;
+            }
+
+            return AddHashState::Success;
+        }
+
+        return AddHashState::ExceedMax;
 	}
 
-    void initSingleFile(FS::path const &path, bool useAll)
+    AddHashState initSingleFile(FS::path const &path, bool useAll)
 	{
-		delete taskQueue.front();
+        taskQueue.front()->deleteLater();
 		taskQueue.clear();
         QList<Algo> disabled = settings.disabledSingleFileAlgos();
-
-		for (Algo const *a = algosBegin(); a != algosEnd(); ++a)
-		{
-            if (useAll || !disabled.contains(*a))
+        try
+        {
+            for (auto a = algosBegin(); a != algosEnd(); ++a)
             {
-                pushTask(path, *a);
+                if (useAll || !disabled.contains(*a))
+                {
+                    pushTask(path, *a);
+                }
             }
-		}
+        }
+        catch (std::bad_alloc &ex)
+        {
+            return AddHashState::Failed;
+        }
+
+        return AddHashState::Success;
 	}
 
 	void pushTask(FS::path const &path, Algo a)
@@ -128,7 +185,8 @@ struct HashingJob::Impl
 		// Who needs smart pointers when you have QObject ownership?
 		taskQueue.push_back(new HashTask(path.u8string().c_str(), a, taskQueue.size(), false, top));
 		QObject::connect(taskQueue.back(), SIGNAL(updated(int)), top, SLOT(taskUpdate(int)));
-		QObject::connect(taskQueue.back(), SIGNAL(completed()), top, SLOT(taskFinished()));
+        QObject::connect(taskQueue.back(), SIGNAL(completed(QString,QString,KirHut::SFH::Algo)),
+                         top,             SLOT(taskFinished(QString,QString,KirHut::SFH::Algo)));
 		QObject::connect(top, SIGNAL(tasksBegin()), taskQueue.back(), SLOT(start()));
 		QObject::connect(top, SIGNAL(canceled()), taskQueue.back(), SLOT(cancel()));
 	}
@@ -140,7 +198,7 @@ struct HashingJob::Impl
 	Algo algo;
 	QStringList files, directories;
 	// You can't use emplace_back and keep HashTask local because QObject deletes the move constructor...
-	std::vector<HashTask *> taskQueue;
+    vector<HashTask *> taskQueue;
 };
 
 HashingJob::HashingJob(QStringList const &paths, Algo algo, QObject *parent) :
@@ -236,15 +294,16 @@ Algo HashingJob::getAlgo() const
 	return im->algo;
 }
 
-void HashingJob::taskFinished()
+void HashingJob::taskFinished(QString const &hash, QString const &filename, Algo algo)
 {
 	if (!im->canceled)
 	{
-		emit tasksDoneUpdate(++im->tasksDone);
-		if (im->tasksDone == qsizetype(im->taskQueue.size()))
-		{
-			emit jobComplete();
-		}
+        emit hashCompleted(hash, filename, algo);
+        emit tasksDoneUpdate(++im->tasksDone);
+        if (im->tasksDone == qsizetype(im->taskQueue.size()))
+        {
+            emit jobComplete();
+        }
 	}
 }
 

@@ -58,12 +58,13 @@ public slots:
 signals:
 	void permilliUpdate(int millis);
 	void tasksDoneUpdate(size_t tasks);
+    void hashCompleted(QString const &hash, QString const &filename, KirHut::SFH::Algo algo);
 	void jobComplete();
 	void tasksBegin();
 	void canceled();
 
 private slots:
-	void taskFinished();
+    void taskFinished(QString const &hash, QString const &filename, KirHut::SFH::Algo algo);
 	void taskUpdate(int change);
 
 private:

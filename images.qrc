@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/kirhut/sfh">
+        <file>images/app.png</file>
+        <file>images/greencheck.png</file>
+        <file>images/redx.png</file>
+    </qresource>
+</RCC>
